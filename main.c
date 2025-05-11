@@ -2,7 +2,6 @@
  * Created by (c) Adava(Adam Cír) 2025*/
 
 #include <SDL2/SDL.h>
-#include <stdio.h>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -15,7 +14,7 @@ void show_mini_window(const char* title, const char* text) {
 
 }
 
-int main(int argc, char* argv[]) {
+int main() {
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
     SDL_bool running = SDL_TRUE;
@@ -24,6 +23,9 @@ int main(int argc, char* argv[]) {
         show_mini_window("Init", "Init error!");
         return 1;
     }
+
+    SDL_Rect rect = { 100, 100, 200, 100 };
+    SDL_Rect rect2 = { 100, 200, 200, 100 };
 
     window = SDL_CreateWindow(
         "Game",                  // název okna
@@ -57,13 +59,13 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-
-        SDL_RenderDrawLine(renderer, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-        SDL_RenderDrawLine(renderer, WINDOW_WIDTH, 0, 0, WINDOW_HEIGHT);
+        SDL_SetRenderDrawColor(renderer, 0, 171, 0, 1);
+        SDL_RenderDrawRect(renderer, &rect);
+        SDL_SetRenderDrawColor(renderer, 255, 124, 0, 1);
+        SDL_RenderDrawRect(renderer, &rect2);
         SDL_RenderPresent(renderer);
     }
 
