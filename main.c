@@ -2,6 +2,7 @@
  * Created by (c) Adava(Adam Cír) 2025*/
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -26,7 +27,12 @@ int main() {
     SDL_bool running = SDL_TRUE;
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        show_mini_window("Init", "Init error!");
+        show_mini_window("Game", "Init error!");
+        return 1;
+    }
+
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        show_mini_window("Game", "SDL_image init error!");
         return 1;
     }
 
@@ -41,25 +47,40 @@ int main() {
     );
 
     if (!window) {
-        show_mini_window("Window", "Window error!");
+        show_mini_window("Game", "Window error!");
         SDL_Quit();
         return 1;
     }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
-        show_mini_window("Renderer", "Renderer error!");
+        show_mini_window("Game", "Renderer error!");
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
+    SDL_Surface* surface = IMG_Load("player.png");
+    if (!surface) {
+        show_mini_window("Game", "Image loading error!");
+        return 1;
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+
+    if (!texture) {
+        show_mini_window("Game", "Texture creation error!");
+        return 1;
+    }
+
+
     Player player = {
         .rect = {
-            .x = 400,
-            .y = 300,
-            .w = 50,
-            .h = 50
+            .x = 0,
+            .y = 0,
+            .w = 100,
+            .h = 100
         },
         .speed = 5
     };
@@ -88,17 +109,16 @@ int main() {
             player.rect.x += player.speed;
         }
 
-        // Omezení pohybu na hranice okna
         if (player.rect.x < 0) player.rect.x = 0;
         if (player.rect.y < 0) player.rect.y = 0;
         if (player.rect.x > 800 - player.rect.w) player.rect.x = 800 - player.rect.w;
         if (player.rect.y > 600 - player.rect.h) player.rect.y = 600 - player.rect.h;
 
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
 
         SDL_SetRenderDrawColor(renderer, 255, 99, 71, 0.5);
-        SDL_RenderFillRect(renderer, &player.rect);
+        SDL_RenderCopy(renderer, texture, NULL, &player.rect);
 
         SDL_RenderPresent(renderer);
 

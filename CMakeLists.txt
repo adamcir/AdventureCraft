@@ -1,16 +1,20 @@
-cmake_minimum_required(VERSION 3.31)
-project(Game C)
+cmake_minimum_required(VERSION 3.10)
+project(Game)
 
-set(CMAKE_C_STANDARD 11)
-
-# Najít SDL2 package
+# Najít SDL2 a SDL2_image
 find_package(SDL2 REQUIRED)
+find_package(SDL2_image REQUIRED)
 
-# Přidat include directories pro SDL2
-include_directories(${SDL2_INCLUDE_DIRS})
-
-# Změnit z knihovny na spustitelný soubor
 add_executable(Game main.c)
 
-# Přilinkovat SDL2 knihovny
-target_link_libraries(Game ${SDL2_LIBRARIES})
+# Přidat include adresáře
+target_include_directories(Game PRIVATE
+        ${SDL2_INCLUDE_DIRS}
+        ${SDL2_IMAGE_INCLUDE_DIRS}
+)
+
+# Linkování knihoven
+target_link_libraries(Game PRIVATE
+        ${SDL2_LIBRARIES}
+        SDL2_image
+)
