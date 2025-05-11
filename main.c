@@ -6,6 +6,12 @@
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
+typedef struct {
+    SDL_Rect rect;
+    int speed;
+} Player;
+
+
 void show_mini_window(const char* title, const char* text) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,  // typ zprávy (ERROR, WARNING, INFORMATION)
                            title,                 // titulek okna
@@ -24,8 +30,6 @@ int main() {
         return 1;
     }
 
-    SDL_Rect rect = { 100, 100, 200, 100 };
-    SDL_Rect rect2 = { 100, 200, 200, 100 };
 
     window = SDL_CreateWindow(
         "Game",                  // název okna
@@ -50,29 +54,61 @@ int main() {
         return 1;
     }
 
+    Player player = {
+        .rect = {
+            .x = 400,
+            .y = 300,
+            .w = 50,
+            .h = 50
+        },
+        .speed = 5
+    };
+
     while (running) {
         SDL_Event event;
-        // Zpracování událostí
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 running = SDL_FALSE;
             }
         }
+        const Uint8* key_status = SDL_GetKeyboardState(NULL);
+        if (key_status[SDL_SCANCODE_ESCAPE]) {
+            running = SDL_FALSE;
+        }
+        if (key_status[SDL_SCANCODE_W] || key_status[SDL_SCANCODE_UP]) {
+            player.rect.y -= player.speed;
+        }
+        if (key_status[SDL_SCANCODE_S] || key_status[SDL_SCANCODE_DOWN]) {
+            player.rect.y += player.speed;
+        }
+        if (key_status[SDL_SCANCODE_A] || key_status[SDL_SCANCODE_LEFT]) {
+            player.rect.x -= player.speed;
+        }
+        if (key_status[SDL_SCANCODE_D] || key_status[SDL_SCANCODE_RIGHT]) {
+            player.rect.x += player.speed;
+        }
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        // Omezení pohybu na hranice okna
+        if (player.rect.x < 0) player.rect.x = 0;
+        if (player.rect.y < 0) player.rect.y = 0;
+        if (player.rect.x > 800 - player.rect.w) player.rect.x = 800 - player.rect.w;
+        if (player.rect.y > 600 - player.rect.h) player.rect.y = 600 - player.rect.h;
+
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, 0, 171, 0, 1);
-        SDL_RenderDrawRect(renderer, &rect);
-        SDL_SetRenderDrawColor(renderer, 255, 124, 0, 1);
-        SDL_RenderDrawRect(renderer, &rect2);
+        SDL_SetRenderDrawColor(renderer, 255, 99, 71, 0.5);
+        SDL_RenderFillRect(renderer, &player.rect);
+
         SDL_RenderPresent(renderer);
+
+        SDL_Delay(16);
+
     }
 
 
     show_mini_window("Info", "Ending");
 
-    // Úklid a ukončení
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
