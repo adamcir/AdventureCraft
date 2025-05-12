@@ -1,5 +1,23 @@
-/* Test game in C
- * Created by (c) Adava(Adam Cír) 2025*/
+/*
+ * Copyright (C) 2025 Adam Cír
+ *
+ * AdventureCraft
+ *
+ * This file is part of AdventureCraft.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * NOT ALLOWED:
+ * - Use this code in closed-source software
+ * - Remove or modify author information
+ *
+ * Author: Adam Cír
+ * Email: adam.cir@ptw.cz
+ */
+
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -36,6 +54,7 @@ int main() {
         return 1;
     }
 
+    SDL_Rect door = {700, 500, 100, 100};
 
     window = SDL_CreateWindow(
         "Game",                  // název okna
@@ -59,18 +78,21 @@ int main() {
         SDL_Quit();
         return 1;
     }
+    SDL_Surface* doorSurface = IMG_Load("textures/door.png");
+    SDL_Surface* playerSurface = IMG_Load("textures/player.png");
 
-    SDL_Surface* surface = IMG_Load("player.png");
-    if (!surface) {
-        show_mini_window("Game", "Image loading error!");
+    if (!playerSurface && !doorSurface) {
+        show_mini_window("Game", "Images loading error!");
         return 1;
     }
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
+    SDL_Texture* playerTexture = SDL_CreateTextureFromSurface(renderer, playerSurface);
+    SDL_Texture* doorTexture = SDL_CreateTextureFromSurface(renderer, doorSurface);
+    SDL_FreeSurface(playerSurface);
+    SDL_FreeSurface(doorSurface);
 
-    if (!texture) {
-        show_mini_window("Game", "Texture creation error!");
+    if (!playerTexture) {
+        show_mini_window("Game", "Textures creation error!");
         return 1;
     }
 
@@ -79,7 +101,7 @@ int main() {
         .rect = {
             .x = 0,
             .y = 0,
-            .w = 100,
+            .w = 61,
             .h = 100
         },
         .speed = 5
@@ -96,16 +118,17 @@ int main() {
         if (key_status[SDL_SCANCODE_ESCAPE]) {
             running = SDL_FALSE;
         }
-        if (key_status[SDL_SCANCODE_W] || key_status[SDL_SCANCODE_UP]) {
+        if (key_status[SDL_SCANCODE_W]) {
             player.rect.y -= player.speed;
         }
-        if (key_status[SDL_SCANCODE_S] || key_status[SDL_SCANCODE_DOWN]) {
+
+        if (key_status[SDL_SCANCODE_S]) {
             player.rect.y += player.speed;
         }
-        if (key_status[SDL_SCANCODE_A] || key_status[SDL_SCANCODE_LEFT]) {
+        if (key_status[SDL_SCANCODE_A]) {
             player.rect.x -= player.speed;
         }
-        if (key_status[SDL_SCANCODE_D] || key_status[SDL_SCANCODE_RIGHT]) {
+        if (key_status[SDL_SCANCODE_D]) {
             player.rect.x += player.speed;
         }
 
@@ -114,20 +137,23 @@ int main() {
         if (player.rect.x > 800 - player.rect.w) player.rect.x = 800 - player.rect.w;
         if (player.rect.y > 600 - player.rect.h) player.rect.y = 600 - player.rect.h;
 
+        if (SDL_HasIntersection(&player.rect, &door)) {
+            show_mini_window("YOU WIN!!!!", "You're so super!");
+            running = SDL_FALSE;
+        }
+
+
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, 255, 99, 71, 0.5);
-        SDL_RenderCopy(renderer, texture, NULL, &player.rect);
+        SDL_RenderCopy(renderer, doorTexture, NULL, &door);
+        SDL_RenderCopy(renderer, playerTexture, NULL, &player.rect);
 
         SDL_RenderPresent(renderer);
 
         SDL_Delay(16);
 
     }
-
-
-    show_mini_window("Info", "Ending");
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
