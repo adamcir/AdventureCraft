@@ -9,7 +9,8 @@ find_package(SDL2_ttf REQUIRED)
 
 
 add_executable(AdventureCraft main.c
-        games.h)
+        games.h
+        games.c)
 
 # Přidat include adresáře
 target_include_directories(AdventureCraft PRIVATE
