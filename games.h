@@ -19,10 +19,10 @@ int show_mini_window_OC(const char* title, const char* text) {
 
     const SDL_MessageBoxColorScheme colorScheme = {
         {
-            { 255, 255, 255},
             { 0, 0, 0},
+            { 255, 255, 255},
             { 70, 70, 70 },
-            { 200, 200, 200 }
+            { 100, 100, 100 }
         }
     };
 
@@ -47,10 +47,10 @@ int show_mini_window(const char* title, const char* text) {
 
     const SDL_MessageBoxColorScheme colorScheme = {
         {
-            { 255, 255, 255},
             { 0, 0, 0},
+            { 255, 255, 255},
             { 70, 70, 70 },
-            { 200, 200, 200 }
+            { 100, 100, 100 }
         }
     };
 
