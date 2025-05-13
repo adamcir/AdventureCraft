@@ -117,7 +117,7 @@ int main (){
     SDL_Surface* doorSurface = IMG_Load("textures/door.png");
     SDL_Surface* playerSurface = IMG_Load("textures/player.png");
     SDL_Surface* backroundSurface = IMG_Load("textures/backround.png");
-    if (!playerSurface && !doorSurface) {
+    if (!playerSurface && !doorSurface && !backroundSurface) {
         show_mini_window("Game", "Images loading error!");
         return 1;
     }
@@ -129,7 +129,7 @@ int main (){
     SDL_FreeSurface(doorSurface);
     SDL_FreeSurface(backroundSurface);
 
-    if (!playerTexture) {
+    if (!playerTexture && !doorTexture && !backroundTexture) {
         show_mini_window("Game", "Textures creation error!");
         return 1;
     }
