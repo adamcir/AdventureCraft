@@ -21,6 +21,8 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
+#include "games.h"
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -30,16 +32,10 @@ typedef struct {
     int speed;
 } Player;
 
+int buttonid;
 
-void show_mini_window(const char* title, const char* text) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,  // typ zprávy (ERROR, WARNING, INFORMATION)
-                           title,                 // titulek okna
-                           text,                  // text zprávy
-                           NULL);
 
-}
-
-int main() {
+int main (){
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
     SDL_bool running = SDL_TRUE;
@@ -54,15 +50,26 @@ int main() {
         return 1;
     }
 
-    SDL_Rect door = {700, 500, 100, 100};
+    if (TTF_Init() < 0) {
+        show_mini_window("Game", "SDL_ttf init error!");
+        return 1;
+    }
+
+    TTF_Font* font = TTF_OpenFont("fonts/ShareTech-Regular.ttf", 32);
+
+    if (font == NULL) {
+        show_mini_window("Game", "Font loading error!");
+        return 1;
+    }
+
 
     window = SDL_CreateWindow(
-        "Game",                  // název okna
-        SDL_WINDOWPOS_CENTERED,          // pozice X
-        SDL_WINDOWPOS_CENTERED,          // pozice Y
-        WINDOW_WIDTH,                    // šířka
-        WINDOW_HEIGHT,                   // výška
-        SDL_WINDOW_SHOWN                 // flags
+        "AdventureCraft",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        WINDOW_WIDTH,
+        WINDOW_HEIGHT,
+        SDL_WINDOW_SHOWN
     );
 
     if (!window) {
@@ -78,9 +85,12 @@ int main() {
         SDL_Quit();
         return 1;
     }
+
+    SDL_Color textcolor = {0, 0,0 , 0};
+
+
     SDL_Surface* doorSurface = IMG_Load("textures/door.png");
     SDL_Surface* playerSurface = IMG_Load("textures/player.png");
-
     if (!playerSurface && !doorSurface) {
         show_mini_window("Game", "Images loading error!");
         return 1;
@@ -95,7 +105,9 @@ int main() {
         show_mini_window("Game", "Textures creation error!");
         return 1;
     }
-
+    char buffer[100];
+    SDL_Rect door = {700, 500, 100, 100};
+    SDL_Rect textRect = {0, 0, 90, 50};
 
     Player player = {
         .rect = {
@@ -106,6 +118,16 @@ int main() {
         },
         .speed = 5
     };
+
+    buttonid = 0;
+    show_mini_window("Game", "Welcome to AdventureCraft!");
+    show_mini_window("Game", "Press WASD to move");
+    buttonid = show_mini_window_OC("Game", "Are you ready!");
+    if (BUTTON_OK != buttonid) {
+        show_mini_window("Game", "Bye!");
+        return 0;
+    }
+
 
     while (running) {
         SDL_Event event;
@@ -142,12 +164,19 @@ int main() {
             running = SDL_FALSE;
         }
 
-
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
 
+        sprintf(buffer, "pos: %d, %d", player.rect.x, player.rect.y);
+        SDL_Surface* fontSurface = TTF_RenderText_Solid(font, buffer, textcolor);
+        SDL_Texture* fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
+        SDL_FreeSurface(fontSurface);
+
+        SDL_RenderCopy(renderer, fontTexture, NULL, &textRect);
+
         SDL_RenderCopy(renderer, doorTexture, NULL, &door);
         SDL_RenderCopy(renderer, playerTexture, NULL, &player.rect);
+        SDL_DestroyTexture(fontTexture);
 
         SDL_RenderPresent(renderer);
 
@@ -157,6 +186,10 @@ int main() {
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    SDL_DestroyTexture(playerTexture);
+    SDL_DestroyTexture(doorTexture);
+    TTF_CloseFont(font);
+    TTF_Quit();
     SDL_Quit();
 
     return 0;
