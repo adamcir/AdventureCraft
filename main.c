@@ -24,8 +24,9 @@
 #include <SDL2/SDL_ttf.h>
 #include "games.h"
 
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
+
+int window_width;
+int window_height;
 
 typedef struct {
     SDL_Rect rect;
@@ -62,15 +63,39 @@ int main (){
         return 1;
     }
 
+    int doorBeginX;
+    int doorBeginY;
 
-    window = SDL_CreateWindow(
-        "AdventureCraft",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        WINDOW_WIDTH,
-        WINDOW_HEIGHT,
-        SDL_WINDOW_SHOWN
-    );
+    buttonid = show_mini_window_OC("Game", "Do you want FULLSCREEN mode?");
+    if (BUTTON_OK == buttonid) {
+        window_width = 1920;
+        window_height = 1080;
+        doorBeginX = 1820;
+        doorBeginY = 980;
+        window = SDL_CreateWindow(
+            "AdventureCraft",
+            SDL_WINDOWPOS_CENTERED,
+            SDL_WINDOWPOS_CENTERED,
+            window_width,
+            window_height,
+            SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP  // přidán flag pro fullscreen
+        );
+    } else {
+        window_width = 800;
+        window_height = 600;
+        doorBeginX = 700;
+        doorBeginY = 500;
+        window = SDL_CreateWindow(
+            "AdventureCraft",
+            SDL_WINDOWPOS_CENTERED,
+            SDL_WINDOWPOS_CENTERED,
+            window_width,
+            window_height,
+            SDL_WINDOW_SHOWN
+        );
+        ;
+    }
+
 
     if (!window) {
         show_mini_window("Game", "Window error!");
@@ -91,6 +116,7 @@ int main (){
 
     SDL_Surface* doorSurface = IMG_Load("textures/door.png");
     SDL_Surface* playerSurface = IMG_Load("textures/player.png");
+    SDL_Surface* backroundSurface = IMG_Load("textures/backround.png");
     if (!playerSurface && !doorSurface) {
         show_mini_window("Game", "Images loading error!");
         return 1;
@@ -98,16 +124,19 @@ int main (){
 
     SDL_Texture* playerTexture = SDL_CreateTextureFromSurface(renderer, playerSurface);
     SDL_Texture* doorTexture = SDL_CreateTextureFromSurface(renderer, doorSurface);
+    SDL_Texture* backroundTexture = SDL_CreateTextureFromSurface(renderer, backroundSurface);
     SDL_FreeSurface(playerSurface);
     SDL_FreeSurface(doorSurface);
+    SDL_FreeSurface(backroundSurface);
 
     if (!playerTexture) {
         show_mini_window("Game", "Textures creation error!");
         return 1;
     }
     char buffer[100];
-    SDL_Rect door = {700, 500, 100, 100};
+    SDL_Rect door = {doorBeginX, doorBeginY, 100, 100};
     SDL_Rect textRect = {0, 0, 90, 50};
+    SDL_Rect backroundRect = {0, 0, window_width, window_height};
 
     Player player = {
         .rect = {
@@ -156,8 +185,8 @@ int main (){
 
         if (player.rect.x < 0) player.rect.x = 0;
         if (player.rect.y < 0) player.rect.y = 0;
-        if (player.rect.x > 800 - player.rect.w) player.rect.x = 800 - player.rect.w;
-        if (player.rect.y > 600 - player.rect.h) player.rect.y = 600 - player.rect.h;
+        if (player.rect.x > window_width - player.rect.w) player.rect.x = window_width - player.rect.w;
+        if (player.rect.y > window_height - player.rect.h) player.rect.y = window_height - player.rect.h;
 
         if (SDL_HasIntersection(&player.rect, &door)) {
             show_mini_window("YOU WIN!!!!", "You're so super!");
@@ -166,6 +195,7 @@ int main (){
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, backroundTexture, NULL, &backroundRect);
 
         sprintf(buffer, "pos: %d, %d", player.rect.x, player.rect.y);
         SDL_Surface* fontSurface = TTF_RenderText_Solid(font, buffer, textcolor);
@@ -188,6 +218,7 @@ int main (){
     SDL_DestroyWindow(window);
     SDL_DestroyTexture(playerTexture);
     SDL_DestroyTexture(doorTexture);
+    SDL_DestroyTexture(backroundTexture);
     TTF_CloseFont(font);
     TTF_Quit();
     SDL_Quit();
