@@ -1,0 +1,51 @@
+name: Build AdventureCraft
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake g++ libsdl2-dev ninja-build zip
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+        choco install ninja -y
+        choco install sdl2 -y
+
+    - name: Configure CMake
+      run: cmake -S . -B build -G Ninja
+
+    - name: Build project
+      run: cmake --build build
+
+    - name: Package build as ZIP
+      run: |
+        cd build
+        zip -r ../AdventureCraft-${{ runner.os }}.zip .
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: AdventureCraft-${{ runner.os }}
+        path: AdventureCraft-${{ runner.os }}.zip
