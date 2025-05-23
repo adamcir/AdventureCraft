@@ -25,6 +25,7 @@ target_link_libraries(AdventureCraft PRIVATE
         SDL2
         SDL2_image
         SDL2_ttf
+        m
 
 )
 

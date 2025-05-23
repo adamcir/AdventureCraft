@@ -64,4 +64,3 @@ int show_mini_window(const char* title, const char* text) {
     return buttonid;
 }
 
-
