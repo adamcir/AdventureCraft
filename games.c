@@ -32,7 +32,9 @@ int show_mini_window_OC(const char* title, const char* text) {
         &colorScheme
         };
     int buttonid;
+
     SDL_ShowMessageBox(&messageboxdata, &buttonid);
+
     return buttonid;
 }
 
@@ -60,7 +62,9 @@ int show_mini_window(const char* title, const char* text) {
         &colorScheme
         };
     int buttonid;
+
     SDL_ShowMessageBox(&messageboxdata, &buttonid);
+
     return buttonid;
 }
 
