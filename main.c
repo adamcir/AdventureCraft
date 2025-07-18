@@ -41,6 +41,11 @@ typedef struct {
     int active;
 } Block;
 
+typedef struct {
+    SDL_Rect rect;
+    int active;
+} Block_cursor;
+
 int count_placed_blocks(Block* blocks, int blocks_count) {
     int count = 0;
     for (int i = 0; i < blocks_count; i++) {
@@ -122,12 +127,14 @@ int main (){
         show_mini_window("Fatal", "Failed to create textures. Game crashed with code 1");
         return 1;
     }
+    char buffer1[128];
+    char buffer2[128];
 
-    char buffer[100];
-    SDL_Rect textRect = {0, 0, 700, 50};
+    SDL_Rect infoTextRect = {0, 0, 700, 50};
+    SDL_Rect livesTextRect = {0, 50, 250, 50};
 
     Player player = {
-        .rect = {200, 200, 61, 100},
+        .rect = {window_width/2 - 30, window_height/2 - 50, 61, 100},
         .speed = 5,
         .lives = 3
     };
@@ -200,26 +207,35 @@ int main (){
         mouseX = (mouseXI / 100) * 100;
         mouseY = (mouseYI / 100) * 100;
 
-        SDL_Rect blockCursor = {mouseX, mouseY, 100, 100};
+        Block_cursor  blockCursor = {
+            .rect = {mouseX, mouseY, 100, 100},
+            .active = 1
+        };
 
-        SDL_RenderDrawRect(renderer, &blockCursor);
+        if (blockCursor.rect.x >= player.rect.x + 300 || blockCursor.rect.y >= player.rect.y + 300 || blockCursor.rect.x <= player.rect.x - 300 || blockCursor.rect.y <= player.rect.y - 300) {
+            blockCursor.active = 0;
+        }
+
+        if (blockCursor.active) {
+            SDL_RenderDrawRect(renderer, &blockCursor.rect);
+        }
 
         if (buttons & SDL_BUTTON_RMASK) {
             int collisionBlock = 0;
             int inside =
-                blockCursor.x >= 0 &&
-                blockCursor.y >= 0 &&
-                blockCursor.x + blockCursor.w <= window_width &&
-                blockCursor.y + blockCursor.h <= window_height;
+                blockCursor.rect.x >= 0 &&
+                blockCursor.rect.y >= 0 &&
+                blockCursor.rect.x + blockCursor.rect.w <= window_width &&
+                blockCursor.rect.y + blockCursor.rect.h <= window_height;
 
             for (int i = 0; i < blocks_count; i++) {
-                if (blocks[i].active && SDL_HasIntersection(&blockCursor, &blocks[i].rect)) {
+                if (blocks[i].active && SDL_HasIntersection(&blockCursor.rect, &blocks[i].rect)) {
                     collisionBlock = 1;
                     break;
                 }
             }
-            if (inside && !collisionBlock && blocks_count < MAX_BLOCKS) {
-                blocks[blocks_count].rect = blockCursor;
+            if (inside && blockCursor.active && !SDL_HasIntersection(&blockCursor.rect, &player.rect) && !collisionBlock && blocks_count < MAX_BLOCKS) {
+                blocks[blocks_count].rect = blockCursor.rect;
                 blocks[blocks_count].active = 1;
                 blocks_count++;
             }
@@ -228,7 +244,7 @@ int main (){
 
         if (buttons & SDL_BUTTON_LMASK){
             for (int i = 0; i < blocks_count; i++) {
-                if (blocks[i].active &&
+                if (blocks[i].active && blockCursor.active &&
                     mouseX >= blocks[i].rect.x && mouseX < blocks[i].rect.x + blocks[i].rect.w &&
                     mouseY >= blocks[i].rect.y && mouseY < blocks[i].rect.y + blocks[i].rect.h) {
                     blocks[i] = blocks[blocks_count - 1];
@@ -244,14 +260,26 @@ int main (){
             }
         }
 
-        sprintf(buffer, "AdventureCraft BLOCK_TEST2, lives %d", player.lives);
-        SDL_Surface* fontSurface = TTF_RenderText_Solid(font, buffer, textcolor);
-        SDL_Texture* fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
-        SDL_FreeSurface(fontSurface);
-        SDL_RenderCopy(renderer, fontTexture, NULL, &textRect);
-        SDL_DestroyTexture(fontTexture);
-
         SDL_RenderCopy(renderer, playerTexture, NULL, &player.rect);
+
+        sprintf(buffer1, "AdventureCraft BLOCK_TEST3");
+
+        SDL_Surface* fontSurface1 = TTF_RenderText_Solid(font, buffer1, textcolor);
+        SDL_Texture* fontTexture1 = SDL_CreateTextureFromSurface(renderer, fontSurface1);
+
+        sprintf(buffer2, "Lives: %d", player.lives);
+
+        SDL_Surface* fontSurface2 = TTF_RenderText_Solid(font, buffer2, textcolor);
+        SDL_Texture* fontTexture2 = SDL_CreateTextureFromSurface(renderer, fontSurface2);
+
+        SDL_RenderCopy(renderer, fontTexture1, NULL, &infoTextRect);
+        SDL_RenderCopy(renderer, fontTexture2, NULL, &livesTextRect);
+
+        SDL_FreeSurface(fontSurface1);
+        SDL_FreeSurface(fontSurface2);
+
+        SDL_DestroyTexture(fontTexture1);
+        SDL_DestroyTexture(fontTexture2);
 
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
