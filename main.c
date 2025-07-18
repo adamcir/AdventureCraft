@@ -134,7 +134,7 @@ int main (){
     SDL_Rect livesTextRect = {0, 50, 250, 50};
 
     Player player = {
-        .rect = {window_width/2 - 30, window_height/2 - 50, 61, 100},
+        .rect = {window_width/2 - 30, window_height/2 - 50, 45, 100},
         .speed = 5,
         .lives = 3
     };
@@ -212,7 +212,7 @@ int main (){
             .active = 1
         };
 
-        if (blockCursor.rect.x >= player.rect.x + 300 || blockCursor.rect.y >= player.rect.y + 300 || blockCursor.rect.x <= player.rect.x - 300 || blockCursor.rect.y <= player.rect.y - 300) {
+        if (blockCursor.rect.x >= player.rect.x + 300 || blockCursor.rect.y >= player.rect.y + 400 || blockCursor.rect.x <= player.rect.x - 400 || blockCursor.rect.y <= player.rect.y - 400) {
             blockCursor.active = 0;
         }
 
