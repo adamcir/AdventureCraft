@@ -16,14 +16,20 @@
  *
  * Author: Adam Cír
  * Email: adam.cir@ptw.cz
+ * GitHub: https://github.com/adamcir/AdventureCraft/
  */
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #include "games.h"
 
 #define MAX_BLOCKS 171
+#define VERSION "BLOCK_TEST3.1"
 
 int mouseX, mouseY, mouseXI, mouseYI;
 int blocks_count = 0;
@@ -46,6 +52,75 @@ typedef struct {
     int active;
 } Block_cursor;
 
+void showLoadingScreen(SDL_Renderer* renderer, TTF_Font* font, const char* message, int progress, FILE* logFile) {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+
+    int centerX = window_width / 2;
+    int centerY = window_height / 2;
+
+    int loadingWidth = 600;
+    int loadingHeight = 200;
+    SDL_Rect loadingBg = {
+        centerX - loadingWidth/2,
+        centerY - loadingHeight/2,
+        loadingWidth,
+        loadingHeight
+    };
+    SDL_SetRenderDrawColor(renderer, 40, 40, 40, 255);
+    SDL_RenderFillRect(renderer, &loadingBg);
+
+    SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+    SDL_RenderDrawRect(renderer, &loadingBg);
+
+    int progressWidth = 500;
+    int progressHeight = 30;
+    SDL_Rect progressBg = {
+        centerX - progressWidth/2,
+        loadingBg.y + 100,
+        progressWidth,
+        progressHeight
+    };
+    SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
+    SDL_RenderFillRect(renderer, &progressBg);
+
+    SDL_Rect progressBar = {
+        progressBg.x + 5,
+        progressBg.y + 5,
+        (int)((progressWidth - 10) * (progress / 100.0f)),
+        progressHeight - 10
+    };
+    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+    SDL_RenderFillRect(renderer, &progressBar);
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDrawRect(renderer, &progressBg);
+
+
+    if (font) {
+        SDL_Color white = {255, 255, 255, 255};
+        SDL_Surface* textSurface = TTF_RenderText_Solid(font, message, white);
+        if (textSurface) {
+            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+            if (textTexture) {
+                int textWidth, textHeight;
+                SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
+                SDL_Rect textRect = {950 - textWidth/2, 400, textWidth, textHeight};
+                SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+                SDL_DestroyTexture(textTexture);
+            }
+            SDL_FreeSurface(textSurface);
+        }
+    }
+
+    SDL_RenderPresent(renderer);
+    SDL_Delay(300);
+    printf("INFO: Loading screen state >> %d\n", progress);
+    fprintf(logFile , "INFO: Loading screen state >> %d\n", progress);
+    printf("INFO: Loading screen message >> %s\n", message);
+    fprintf(logFile , "INFO: Loading screen message >> %s\n", message);
+}
+
 int count_placed_blocks(Block* blocks, int blocks_count) {
     int count = 0;
     for (int i = 0; i < blocks_count; i++) {
@@ -57,34 +132,82 @@ int count_placed_blocks(Block* blocks, int blocks_count) {
 }
 
 int main (){
+    time_t rawtime;
+    struct tm* timeinfo;
+
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    printf("INFO: Opening log file >> log.txt\n");
+
+    FILE* logFile = fopen("AdventureCraft-log.aclog", "w");
+    if (logFile == NULL) {
+        printf("ERR: Failed to open >> log.txt\n");
+        return 1;
+    }
+    printf("INFO: Game started >> %s\n", asctime(timeinfo));
+    fprintf(logFile, "INFO: Game started >> %s\n", asctime(timeinfo));
+
+    printf("MAIN: Starting >> AdventureCraft\n");
+    fprintf(logFile, "MAIN: Starting >> AdventureCraft\n");
+
+    printf("===========================\n");
+    printf("     ADAVA SOFTWARE by\n");
+    printf("       (C) Adam Cír\n");
+    printf("===========================\n");
+    printf("Copyright (C) 2025 Adam Cír\n");
+    printf("|AdventureCraft %s|\n", VERSION);
+    printf("===========================\n");
+    printf("  This software is under\n");
+    printf("     license GPL v3.0\n");
+    printf("===========================\n");
+    printf("GitHub: https://github.com/adamcir/AdventureCraft\n");
+
+    fprintf(logFile, "===========================\n");
+    fprintf(logFile, "     ADAVA SOFTWARE by\n");
+    fprintf(logFile, "       (C) Adam Cír\n");
+    fprintf(logFile, "===========================\n");
+    fprintf(logFile, "Copyright (C) 2025 Adam Cír\n");
+    fprintf(logFile, "|AdventureCraft|%s\n", VERSION);
+    fprintf(logFile, "===========================\n");
+    fprintf(logFile, "  This software is under\n");
+    fprintf(logFile, "     license GPL v3.0\n");
+    fprintf(logFile, "===========================\n");
+    fprintf(logFile, "GitHub: https://github.com/adamcir/AdventureCraft\n");
+
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
     SDL_bool running = SDL_TRUE;
 
+    printf("INFO: Initializing >> SDL2 - Video\n");
+    fprintf(logFile, "INFO: Initializing >> SDL2 - Video\n");
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         show_mini_window("Fatal", "Failed to initialize a graphics. Game crashed with code 1");
+        printf("FATAL: Failed to initialize >> SDL2 - Video");
+        fprintf(logFile, "FATAL: Failed to initialize >> SDL2 - Video");
+        fclose(logFile);
         return 1;
     }
 
+    printf("INFO: Initializing >> SDL2 - Images\n");
+    fprintf(logFile, "INFO: Initializing >> SDL2 - Images\n");
     if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
         show_mini_window("Fatal", "Failed to initialize a SDL2_IMG lib. Game crashed with code 1");
+        printf("FATAL: Failed to initialize >> SDL2_IMG");
+        fprintf(logFile, "FATAL: Failed to initialize >> SDL2_IMG");
+        fclose(logFile);
+        SDL_Quit();
         return 1;
     }
 
     if (TTF_Init() < 0) {
         show_mini_window("Fatal", "Failed to initialize a SDL2_TTF lib. Game crashed with code 1");
+        printf("FATAL: Failed to initialize >> SDL2_TTF");
+        fprintf(logFile, "FATAL: Failed to initialize >> SDL2_TTF");
+        fclose(logFile);
+        IMG_Quit();
+        SDL_Quit();
         return 1;
-    }
-
-    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 32);
-    if (font == NULL) {
-        show_mini_window("Fatal", "Failed to open a font. Game crashed with code 1");
-        return 1;
-    }
-
-    Block blocks[MAX_BLOCKS];
-    for (int i = 0; i < MAX_BLOCKS; i++) {
-        blocks[i].active = 0;
     }
 
     window_width = 1900;
@@ -93,6 +216,11 @@ int main (){
 
     if (!window) {
         show_mini_window("Fatal", "Failed to create a window. Game crashed with code 1");
+        printf("FATAL: Failed to create >> window");
+        fprintf(logFile, "FATAL: Failed to create >> window");
+        fclose(logFile);
+        IMG_Quit();
+        TTF_Quit();
         SDL_Quit();
         return 1;
     }
@@ -101,20 +229,85 @@ int main (){
     if (!renderer) {
         SDL_DestroyWindow(window);
         show_mini_window("Fatal", "Failed to create a render. Game crashed with code 1");
+        printf("FATAL: Failed to create >> render");
+        fprintf(logFile, "FATAL: Failed to create >> render");
+        fclose(logFile);
+        IMG_Quit();
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 32);
+
+    SDL_Delay(500);
+
+    showLoadingScreen(renderer, NULL, "PREPARING GAME...", 0, logFile);
+
+    printf("INFO: Loading font >> font.ttf\n");
+    fprintf(logFile, "INFO: Loading font >> font.ttf\n");
+    showLoadingScreen(renderer, NULL, "LOADING FONT...", 20, logFile);
+    if (font == NULL) {
+        showLoadingScreen(renderer, NULL, "EXITING", 100, logFile);
+        SDL_DestroyWindow(window);
+        SDL_DestroyRenderer(renderer);
+        printf("ERR: Missing >> font.ttf %s\n", TTF_GetError());
+        fprintf(logFile, "ERR: Missing >> font.ttf %s\n", TTF_GetError());
+        show_mini_window("Error", "Failed to open a font. Game crashed with code 1");
+        IMG_Quit();
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+    printf("INFO: Font loaded\n");
+    fprintf(logFile, "INFO: Font loaded\n");
+
+    Block blocks[MAX_BLOCKS];
+    for (int i = 0; i < MAX_BLOCKS; i++) {
+        blocks[i].active = 0;
+    }
+
+    SDL_Color textcolor = {255, 255, 255, 255};
+
+    printf("INFO: Loading texture >> player.png\n");
+    fprintf(logFile, "INFO: Loading texture >> player.png\n");
+    showLoadingScreen(renderer, font, "LOADING PLAYER TEXTURE...", 50, logFile);
+    SDL_Surface* playerSurface = IMG_Load("textures/player.png");
+    if (!playerSurface) {
+        printf("ERR: Missing >> player.png: %s\n", IMG_GetError());
+        fprintf(logFile, "ERR: Missing >> player.png: %s\n", IMG_GetError());
+
+    } else {
+        printf("INFO: Texture loaded >> %dx%d\n", playerSurface->w, playerSurface->h);
+        fprintf(logFile, "INFO: Texture loaded >> %dx%d\n", playerSurface->w, playerSurface->h);
+    }
+
+    printf("INFO: Loading texture >> block.png\n");
+    fprintf(logFile, "INFO: Loading texture >> block.png\n");
+    showLoadingScreen(renderer, font, "LOADING BLOCK TEXTURE...", 80, logFile);
+    SDL_Surface* blockSurface = IMG_Load("textures/block.png");
+    if (!blockSurface) {
+        printf("ERR: Missing >> block.png: %s\n", IMG_GetError());
+        fprintf(logFile, "ERR: Missing >> block.png: %s\n", IMG_GetError());
+    } else {
+        printf("INFO: Texture loaded >> %dx%d\n", blockSurface->w, blockSurface->h);
+        fprintf(logFile, "INFO: Texture loaded >> %dx%d\n", blockSurface->w, blockSurface->h);
+    }
+    
+    if (!playerSurface || !blockSurface) {
+        showLoadingScreen(renderer, font, "EXITING", 100, logFile);
+        SDL_DestroyWindow(window);
+        SDL_DestroyRenderer(renderer);
+        show_mini_window("Error", "Failed to load images. Game crashed with code 1");
+        printf("ERR: Failed to load >> images");
+        fprintf(logFile, "ERR: Failed to load >> images");
+        fclose(logFile);
+        IMG_Quit();
+        TTF_Quit();
         SDL_Quit();
         return 1;
     }
 
-    SDL_Color textcolor = {0, 0, 0, 0};
-
-    SDL_Surface* playerSurface = IMG_Load("textures/player.png");
-    SDL_Surface* blockSurface = IMG_Load("textures/block.png");
-    
-    if (!playerSurface || !blockSurface) {
-        SDL_DestroyWindow(window);
-        show_mini_window("Fatal", "Failed to load images. Game crashed with code 1");
-        return 1;
-    }
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
     SDL_Texture* playerTexture = SDL_CreateTextureFromSurface(renderer, playerSurface);
     SDL_Texture* blockTexture = SDL_CreateTextureFromSurface(renderer, blockSurface);
@@ -123,10 +316,24 @@ int main (){
     SDL_FreeSurface(blockSurface);
 
     if (!playerTexture || !blockTexture) {
+        showLoadingScreen(renderer, font, "EXITING", 100, logFile);
         SDL_DestroyWindow(window);
-        show_mini_window("Fatal", "Failed to create textures. Game crashed with code 1");
+        SDL_DestroyRenderer(renderer);
+        show_mini_window("Error", "Failed to create textures. Game crashed with code 1");
+        printf("ERR: Failed to create >> textures");
+        fprintf(logFile, "ERR: Failed to create >> textures");
+        fclose(logFile);
+        IMG_Quit();
+        TTF_Quit();
+        SDL_Quit();
         return 1;
     }
+
+    showLoadingScreen(renderer, font, "LOADING COMPLETE!", 100, logFile);
+    printf("INFO: All assets are loaded\n");
+    fprintf(logFile, "INFO: All assets are loaded\n");
+    SDL_Delay(500);
+
     char buffer1[128];
     char buffer2[128];
 
@@ -138,6 +345,9 @@ int main (){
         .speed = 5,
         .lives = 3
     };
+
+    printf("INFO: Launched >> AdventureCraft, Starting >> Main game loop\n");
+    fprintf(logFile, "INFO: Launched >> AdventureCraft, Starting >> Main game loop\n");
 
     while (running) {
         SDL_Event event;
@@ -156,6 +366,8 @@ int main (){
         }
 
         if (key_status[SDL_SCANCODE_ESCAPE]) {
+            printf("INFO: Escaping >> AdventureCraft\n");
+            fprintf(logFile, "INFO: Escaping >> AdventureCraft\n");
             running = SDL_FALSE;
         }
         int old_x = player.rect.x;
@@ -164,9 +376,13 @@ int main (){
         int new_x = player.rect.x;
         if (key_status[SDL_SCANCODE_A] && player.rect.x > 0) {
             new_x -= player.speed;
+            printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
+            fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
         }
         if (key_status[SDL_SCANCODE_D] && player.rect.x < window_width - player.rect.w) {
             new_x += player.speed;
+            printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
+            fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
         }
 
         player.rect.x = new_x;
@@ -182,9 +398,13 @@ int main (){
         int new_y = player.rect.y;
         if (key_status[SDL_SCANCODE_W] && player.rect.y > 0) {
             new_y -= player.speed;
+            printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
+            fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
         }
         if (key_status[SDL_SCANCODE_S] && player.rect.y < window_height - player.rect.h) {
             new_y += player.speed;
+            printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
+            fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
         }
 
         int backup_x = player.rect.x;
@@ -199,7 +419,7 @@ int main (){
         if (collision) player.rect.y = old_y;
         player.rect.x = backup_x;
 
-        SDL_SetRenderDrawColor(renderer, 155, 155, 155, 0);
+        SDL_SetRenderDrawColor(renderer, 100, 100, 100, 0);
         SDL_RenderClear(renderer);
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -238,6 +458,8 @@ int main (){
                 blocks[blocks_count].rect = blockCursor.rect;
                 blocks[blocks_count].active = 1;
                 blocks_count++;
+                printf("INFO: Block added >> |pos: x=%d, y=%d|||id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, blocks_count);
+                fprintf(logFile, "INFO: Block added >> |pos: x=%d, y=%d||id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, blocks_count);
             }
 
         }
@@ -249,6 +471,8 @@ int main (){
                     mouseY >= blocks[i].rect.y && mouseY < blocks[i].rect.y + blocks[i].rect.h) {
                     blocks[i] = blocks[blocks_count - 1];
                     blocks_count--;
+                    printf("INFO: Block removed >> |pos: x=%d, y=%d||id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks_count);
+                    fprintf(logFile, "INFO: Block removed >> |pos: x=%d, y=%d||id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks_count);
                     break;
                 }
             }
@@ -262,22 +486,32 @@ int main (){
 
         SDL_RenderCopy(renderer, playerTexture, NULL, &player.rect);
 
-        sprintf(buffer1, "AdventureCraft BLOCK_TEST3");
+        sprintf(buffer1, "AdventureCraft %s", VERSION);
+
+        int textWidth1, textHeight1;
+        TTF_SizeText(font, buffer1, &textWidth1, &textHeight1);
 
         SDL_Surface* fontSurface1 = TTF_RenderText_Solid(font, buffer1, textcolor);
         SDL_Texture* fontTexture1 = SDL_CreateTextureFromSurface(renderer, fontSurface1);
 
         sprintf(buffer2, "Lives: %d", player.lives);
 
+        int textWidth2, textHeight2;
+        TTF_SizeText(font, buffer2, &textWidth2, &textHeight2);
+
         SDL_Surface* fontSurface2 = TTF_RenderText_Solid(font, buffer2, textcolor);
         SDL_Texture* fontTexture2 = SDL_CreateTextureFromSurface(renderer, fontSurface2);
+
+        infoTextRect.w = textWidth1;
+        infoTextRect.h = textHeight1;
+        livesTextRect.w = textWidth2;
+        livesTextRect.h = textHeight2;
 
         SDL_RenderCopy(renderer, fontTexture1, NULL, &infoTextRect);
         SDL_RenderCopy(renderer, fontTexture2, NULL, &livesTextRect);
 
         SDL_FreeSurface(fontSurface1);
         SDL_FreeSurface(fontSurface2);
-
         SDL_DestroyTexture(fontTexture1);
         SDL_DestroyTexture(fontTexture2);
 
@@ -286,12 +520,33 @@ int main (){
     }
 
     SDL_DestroyRenderer(renderer);
+    printf("INFO: Destroying >> render\n");
+    fprintf(logFile, "INFO: Destroying >> render\n");
     SDL_DestroyWindow(window);
+    printf("INFO: Destroying >> window\n");
+    fprintf(logFile, "INFO: Destroying >> window\n");
     SDL_DestroyTexture(playerTexture);
+    printf("INFO: Destroying Texture >> playerTexture\n");
+    fprintf(logFile, "INFO: Destroying Texture >> playerTexture\n");
     SDL_DestroyTexture(blockTexture);
+    printf("INFO: Destroying Texture >> blockTexture\n");
+    fprintf(logFile, "INFO: Destroying Texture >> blockTexture\n");
     TTF_CloseFont(font);
+    printf("INFO: Closing Font >> font.ttf\n");
+    fprintf(logFile, "INFO: Closing Font >> font.ttf\n");
+    IMG_Quit();
+    printf("INFO: Quiting >> SDL2_IMG\n");
+    fprintf(logFile, "INFO: Quiting >> SDL2_IMG\n");
     TTF_Quit();
+    printf("INFO: Quiting >> SDL2_ttf\n");
+    fprintf(logFile, "INFO: Quiting >> SDL2_ttf\n");
     SDL_Quit();
-
+    printf("INFO: Quiting >> SDL2\n");
+    fprintf(logFile, "INFO: Quiting >> SDL2\n");
+    printf("INFO: Game ended >> %s\n", asctime(timeinfo));
+    fprintf(logFile, "INFO: Game ended >> %s\n", asctime(timeinfo));
+    printf("END: Game ended >> code 0 = SUCCESS\n");
+    fprintf(logFile, "END: Game ended >> code 0 = SUCCESS\n");
+    fclose(logFile);
     return 0;
 }
