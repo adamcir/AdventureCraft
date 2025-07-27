@@ -29,7 +29,7 @@
 #include "games.h"
 
 #define MAX_BLOCKS 171
-#define VERSION "BLOCK_TEST3.1"
+#define VERSION "BLOCK_TEST4"
 
 int mouseX, mouseY, mouseXI, mouseYI;
 int blocks_count = 0;
@@ -51,6 +51,13 @@ typedef struct {
     SDL_Rect rect;
     int active;
 } Block_cursor;
+
+typedef struct {
+    char version[32];
+    int blocks_count;
+    Player player_data;
+    Block blocks_data[MAX_BLOCKS];
+} WorldSave;
 
 void showLoadingScreen(SDL_Renderer* renderer, TTF_Font* font, const char* message, int progress, FILE* logFile) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
@@ -131,6 +138,77 @@ int count_placed_blocks(Block* blocks, int blocks_count) {
     return count;
 }
 
+int saveWorld(const char* filename, Block* blocks, int blocks_count, Player* player, FILE* logFile) {
+    FILE* saveFile = fopen(filename, "wb");
+    if (saveFile == NULL) {
+        printf("ERR: Failed to create save file >> %s\n", filename);
+        fprintf(logFile, "ERR: Failed to create save file >> %s\n", filename);
+        return 0;
+    }
+
+    WorldSave worldSave;
+    strcpy(worldSave.version, VERSION);
+    worldSave.blocks_count = blocks_count;
+    worldSave.player_data = *player;
+
+    for (int i = 0; i < MAX_BLOCKS; i++) {
+        if (i < blocks_count) {
+            worldSave.blocks_data[i] = blocks[i];
+        } else {
+            worldSave.blocks_data[i].active = 0;
+        }
+    }
+
+    size_t written = fwrite(&worldSave, sizeof(WorldSave), 1, saveFile);
+    fclose(saveFile);
+
+    if (written == 1) {
+        printf("INFO: World saved >> %s\n", filename);
+        fprintf(logFile, "INFO: World saved >> %s\n", filename);
+        return 1;
+    } else {
+        printf("ERR: Failed to write save file >> %s\n", filename);
+        fprintf(logFile, "ERR: Failed to write save file >> %s\n", filename);
+        return 0;
+    }
+}
+
+int loadWorld(const char* filename, Block* blocks, int* blocks_count, Player* player, FILE* logFile) {
+    FILE* saveFile = fopen(filename, "rb");
+    if (saveFile == NULL) {
+        printf("ERR: Failed to open save file >> %s\n", filename);
+        fprintf(logFile, "ERR: Failed to open save file >> %s\n", filename);
+        return 0;
+    }
+
+    WorldSave worldSave;
+    size_t read = fread(&worldSave, sizeof(WorldSave), 1, saveFile);
+    fclose(saveFile);
+
+    if (read != 1) {
+        printf("ERR: Failed to read save file >> %s\n", filename);
+        fprintf(logFile, "ERR: Failed to read save file >> %s\n", filename);
+        return 0;
+    }
+
+    if (strcmp(worldSave.version, VERSION) != 0) {
+        printf("WARN: Save file version mismatch >> Expected: %s, Got: %s\n", VERSION, worldSave.version);
+        fprintf(logFile, "WARN: Save file version mismatch >> Expected: %s, Got: %s\n", VERSION, worldSave.version);
+        show_mini_window("Error", "Save file version mismatch. Trying to open a save.");
+    }
+
+    *blocks_count = worldSave.blocks_count;
+    *player = worldSave.player_data;
+
+    for (int i = 0; i < MAX_BLOCKS; i++) {
+        blocks[i] = worldSave.blocks_data[i];
+    }
+
+    printf("INFO: World loaded >> %s (blocks: %d)\n", filename, *blocks_count);
+    fprintf(logFile, "INFO: World loaded >> %s (blocks: %d)\n", filename, *blocks_count);
+    return 1;
+}
+
 int main (){
     time_t rawtime;
     struct tm* timeinfo;
@@ -143,6 +221,7 @@ int main (){
     FILE* logFile = fopen("AdventureCraft-log.aclog", "w");
     if (logFile == NULL) {
         printf("ERR: Failed to open >> log.txt\n");
+        show_mini_window("Fatal", "Failed to open a log file. Game crashed with code 1");
         return 1;
     }
     printf("INFO: Game started >> %s\n", asctime(timeinfo));
@@ -156,7 +235,7 @@ int main (){
     printf("       (C) Adam Cír\n");
     printf("===========================\n");
     printf("Copyright (C) 2025 Adam Cír\n");
-    printf("|AdventureCraft %s|\n", VERSION);
+    printf("AdventureCraft %s\n", VERSION);
     printf("===========================\n");
     printf("  This software is under\n");
     printf("     license GPL v3.0\n");
@@ -168,7 +247,7 @@ int main (){
     fprintf(logFile, "       (C) Adam Cír\n");
     fprintf(logFile, "===========================\n");
     fprintf(logFile, "Copyright (C) 2025 Adam Cír\n");
-    fprintf(logFile, "|AdventureCraft|%s\n", VERSION);
+    fprintf(logFile, "AdventureCraft%s\n", VERSION);
     fprintf(logFile, "===========================\n");
     fprintf(logFile, "  This software is under\n");
     fprintf(logFile, "     license GPL v3.0\n");
@@ -237,8 +316,6 @@ int main (){
         SDL_Quit();
         return 1;
     }
-    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 32);
-
     SDL_Delay(500);
 
     showLoadingScreen(renderer, NULL, "PREPARING GAME...", 0, logFile);
@@ -246,6 +323,7 @@ int main (){
     printf("INFO: Loading font >> font.ttf\n");
     fprintf(logFile, "INFO: Loading font >> font.ttf\n");
     showLoadingScreen(renderer, NULL, "LOADING FONT...", 20, logFile);
+    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 32);
     if (font == NULL) {
         showLoadingScreen(renderer, NULL, "EXITING", 100, logFile);
         SDL_DestroyWindow(window);
@@ -440,6 +518,27 @@ int main (){
             SDL_RenderDrawRect(renderer, &blockCursor.rect);
         }
 
+        // Do hlavní smyčky (while (running)) přidejte:
+        if (key_status[SDL_SCANCODE_F5]) {
+            // Uložit hru
+            if (saveWorld("world.acsave", blocks, blocks_count, &player, logFile)) {
+                // Můžete zobrazit zprávu o úspěšném uložení
+                printf("INFO: Game saved successfully\n");
+                fprintf(logFile, "INFO: Game saved successfully\n");
+            }
+            SDL_Delay(200); // Zabránění opakovanému stisknutí
+        }
+
+        if (key_status[SDL_SCANCODE_F9]) {
+            // Načíst hru
+            if (loadWorld("world.acsave", blocks, &blocks_count, &player, logFile)) {
+                // Můžete zobrazit zprávu o úspěšném načtení
+                printf("INFO: Game loaded successfully\n");
+                fprintf(logFile, "INFO: Game loaded successfully\n");
+            }
+            SDL_Delay(200); // Zabránění opakovanému stisknutí
+        }
+
         if (buttons & SDL_BUTTON_RMASK) {
             int collisionBlock = 0;
             int inside =
@@ -543,8 +642,6 @@ int main (){
     SDL_Quit();
     printf("INFO: Quiting >> SDL2\n");
     fprintf(logFile, "INFO: Quiting >> SDL2\n");
-    printf("INFO: Game ended >> %s\n", asctime(timeinfo));
-    fprintf(logFile, "INFO: Game ended >> %s\n", asctime(timeinfo));
     printf("END: Game ended >> code 0 = SUCCESS\n");
     fprintf(logFile, "END: Game ended >> code 0 = SUCCESS\n");
     fclose(logFile);
