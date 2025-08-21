@@ -29,12 +29,13 @@
 #include "games.h"
 
 #define MAX_BLOCKS 171
-#define VERSION "BLOCK_TEST4"
+#define VERSION "BLOCK_TEST5"
 
 int mouseX, mouseY, mouseXI, mouseYI;
 int blocks_count = 0;
 int window_width, window_height;
 int buttonid;
+int currentBlockType = 0;
 
 typedef struct {
     SDL_Rect rect;
@@ -45,6 +46,7 @@ typedef struct {
 typedef struct {
     SDL_Rect rect;
     int active;
+    int type;
 } Block;
 
 typedef struct {
@@ -165,10 +167,12 @@ int saveWorld(const char* filename, Block* blocks, int blocks_count, Player* pla
     if (written == 1) {
         printf("INFO: World saved >> %s\n", filename);
         fprintf(logFile, "INFO: World saved >> %s\n", filename);
+        show_mini_window("Info", "World saved.");
         return 1;
     } else {
         printf("ERR: Failed to write save file >> %s\n", filename);
         fprintf(logFile, "ERR: Failed to write save file >> %s\n", filename);
+        show_mini_window("Error", "Failed to write a save file.");
         return 0;
     }
 }
@@ -178,6 +182,7 @@ int loadWorld(const char* filename, Block* blocks, int* blocks_count, Player* pl
     if (saveFile == NULL) {
         printf("ERR: Failed to open save file >> %s\n", filename);
         fprintf(logFile, "ERR: Failed to open save file >> %s\n", filename);
+        show_mini_window("Error", "Failed to open a save file.");
         return 0;
     }
 
@@ -188,6 +193,7 @@ int loadWorld(const char* filename, Block* blocks, int* blocks_count, Player* pl
     if (read != 1) {
         printf("ERR: Failed to read save file >> %s\n", filename);
         fprintf(logFile, "ERR: Failed to read save file >> %s\n", filename);
+        show_mini_window("Error", "Failed to read a save file.");
         return 0;
     }
 
@@ -206,10 +212,11 @@ int loadWorld(const char* filename, Block* blocks, int* blocks_count, Player* pl
 
     printf("INFO: World loaded >> %s (blocks: %d)\n", filename, *blocks_count);
     fprintf(logFile, "INFO: World loaded >> %s (blocks: %d)\n", filename, *blocks_count);
+    show_mini_window("Info", "World loaded.");
     return 1;
 }
 
-int main (){
+int main () {
     time_t rawtime;
     struct tm* timeinfo;
 
@@ -323,7 +330,7 @@ int main (){
     printf("INFO: Loading font >> font.ttf\n");
     fprintf(logFile, "INFO: Loading font >> font.ttf\n");
     showLoadingScreen(renderer, NULL, "LOADING FONT...", 20, logFile);
-    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 32);
+    TTF_Font* font = TTF_OpenFont("fonts/font.ttf", 20);
     if (font == NULL) {
         showLoadingScreen(renderer, NULL, "EXITING", 100, logFile);
         SDL_DestroyWindow(window);
@@ -342,6 +349,7 @@ int main (){
     Block blocks[MAX_BLOCKS];
     for (int i = 0; i < MAX_BLOCKS; i++) {
         blocks[i].active = 0;
+        blocks[i].type = 0;
     }
 
     SDL_Color textcolor = {255, 255, 255, 255};
@@ -359,19 +367,37 @@ int main (){
         fprintf(logFile, "INFO: Texture loaded >> %dx%d\n", playerSurface->w, playerSurface->h);
     }
 
-    printf("INFO: Loading texture >> block.png\n");
-    fprintf(logFile, "INFO: Loading texture >> block.png\n");
-    showLoadingScreen(renderer, font, "LOADING BLOCK TEXTURE...", 80, logFile);
-    SDL_Surface* blockSurface = IMG_Load("textures/block.png");
-    if (!blockSurface) {
-        printf("ERR: Missing >> block.png: %s\n", IMG_GetError());
-        fprintf(logFile, "ERR: Missing >> block.png: %s\n", IMG_GetError());
+    printf("INFO: Loading textures >> wood.png, bricks.png\n");
+    fprintf(logFile, "INFO: Loading textures >> wood.png, bricks.png, stone.png, glass.png, log.png\n");
+    showLoadingScreen(renderer, font, "LOADING BLOCKS TEXTURES...", 80, logFile);
+
+    SDL_Surface* blockWoodSurface = IMG_Load("textures/wood.png");
+    SDL_Surface* blockBricksSurface = IMG_Load("textures/bricks.png");
+    SDL_Surface* blockStoneSurface = IMG_Load("textures/stone.png");
+    SDL_Surface* blockGlassSurface = IMG_Load("textures/glass.png");
+    SDL_Surface* blockLogSurface = IMG_Load("textures/log.png");
+
+    if (!blockWoodSurface) {
+        printf("ERR: Missing >> wood.png: %s\n", IMG_GetError());
+        fprintf(logFile, "ERR: Missing >> wood.png: %s\n", IMG_GetError());
+    } else if (!blockBricksSurface) {
+        printf("ERR: Missing >> bricks.png: %s\n", IMG_GetError());
+        fprintf(logFile, "ERR: Missing >> bricks.png: %s\n", IMG_GetError());
+    } else if (!blockStoneSurface) {
+        printf("ERR: Missing >> stone.png: %s\n", IMG_GetError());
+        fprintf(logFile, "ERR: Missing >> stone.png: %s\n", IMG_GetError());
+    } else if (!blockGlassSurface) {
+        printf("ERR: Missing >> glass.png: %s\n", IMG_GetError());
+        fprintf(logFile, "ERR: Missing >> glass.png: %s\n", IMG_GetError());
+    } else if (!blockLogSurface) {
+        printf("ERR: Missing >> log.png: %s\n", IMG_GetError());
+        fprintf(logFile, "ERR: Missing >> log.png: %s\n", IMG_GetError());
     } else {
-        printf("INFO: Texture loaded >> %dx%d\n", blockSurface->w, blockSurface->h);
-        fprintf(logFile, "INFO: Texture loaded >> %dx%d\n", blockSurface->w, blockSurface->h);
+        printf("INFO: Textures loaded >> Wood: %dx%d, Bricks: %dx%d, Stone: %dx%d, Glass: %dx%d, Log: %dx%d (px)\n", blockWoodSurface->w, blockWoodSurface->h, blockBricksSurface->w, blockBricksSurface->h, blockStoneSurface->w, blockStoneSurface->h, blockGlassSurface->w, blockGlassSurface->h, blockGlassSurface->w, blockGlassSurface->h);
+        fprintf(logFile, "INFO: Textures loaded >> Wood: %dx%d, Bricks: %dx%d, Stone: %dx%d, Glass: %dx%d, Log: %dx%d (px)\n", blockWoodSurface->w, blockWoodSurface->h, blockBricksSurface->w, blockBricksSurface->h, blockStoneSurface->w, blockStoneSurface->h, blockGlassSurface->w, blockGlassSurface->h, blockGlassSurface->w, blockGlassSurface->h);
     }
-    
-    if (!playerSurface || !blockSurface) {
+
+    if (!playerSurface || !blockWoodSurface || !blockBricksSurface || !blockStoneSurface || !blockGlassSurface || !blockLogSurface) {
         showLoadingScreen(renderer, font, "EXITING", 100, logFile);
         SDL_DestroyWindow(window);
         SDL_DestroyRenderer(renderer);
@@ -388,12 +414,20 @@ int main (){
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
     SDL_Texture* playerTexture = SDL_CreateTextureFromSurface(renderer, playerSurface);
-    SDL_Texture* blockTexture = SDL_CreateTextureFromSurface(renderer, blockSurface);
-    
-    SDL_FreeSurface(playerSurface);
-    SDL_FreeSurface(blockSurface);
+    SDL_Texture* blockWoodTexture = SDL_CreateTextureFromSurface(renderer, blockWoodSurface);
+    SDL_Texture* blockBricksTexture = SDL_CreateTextureFromSurface(renderer, blockBricksSurface);
+    SDL_Texture* blockStoneTexture = SDL_CreateTextureFromSurface(renderer, blockStoneSurface);
+    SDL_Texture* blockGlassTexture = SDL_CreateTextureFromSurface(renderer, blockGlassSurface);
+    SDL_Texture* blockLogTexture = SDL_CreateTextureFromSurface(renderer, blockLogSurface);
 
-    if (!playerTexture || !blockTexture) {
+    SDL_FreeSurface(playerSurface);
+    SDL_FreeSurface(blockWoodSurface);
+    SDL_FreeSurface(blockBricksSurface);
+    SDL_FreeSurface(blockStoneSurface);
+    SDL_FreeSurface(blockGlassSurface);
+    SDL_FreeSurface(blockLogSurface);
+
+    if (!playerTexture || !blockWoodTexture || !blockBricksTexture || !blockStoneTexture || !blockGlassTexture || !blockLogTexture) {
         showLoadingScreen(renderer, font, "EXITING", 100, logFile);
         SDL_DestroyWindow(window);
         SDL_DestroyRenderer(renderer);
@@ -414,9 +448,11 @@ int main (){
 
     char buffer1[128];
     char buffer2[128];
+    char buffer3[128];
 
     SDL_Rect infoTextRect = {0, 0, 700, 50};
-    SDL_Rect livesTextRect = {0, 50, 250, 50};
+    SDL_Rect livesTextRect = {0, 25, 250, 50};
+    SDL_Rect typeTextRect = {0, 50, 250, 50};
 
     Player player = {
         .rect = {window_width/2 - 30, window_height/2 - 50, 45, 100},
@@ -430,11 +466,13 @@ int main (){
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                running = SDL_FALSE;
+            switch (event.type) {
+                case SDL_QUIT:
+                    running = 0;
+                    break;
             }
         }
-        
+
         Uint32 buttons = SDL_GetMouseState(&mouseX, &mouseY);
         const Uint8* key_status = SDL_GetKeyboardState(NULL);
 
@@ -448,6 +486,47 @@ int main (){
             fprintf(logFile, "INFO: Escaping >> AdventureCraft\n");
             running = SDL_FALSE;
         }
+
+        if (key_status[SDL_SCANCODE_1]) {
+            if (currentBlockType != 0) {
+                currentBlockType = 0;
+                printf("INFO: Selected block type >> Wood (%d)\n", currentBlockType);
+                fprintf(logFile, "INFO: Selected block type >> Wood (%d)\n", currentBlockType);
+                SDL_Delay(100);
+            }
+        }
+        if (key_status[SDL_SCANCODE_2]) {
+            if (currentBlockType != 1) {
+                currentBlockType = 1;
+                printf("INFO: Selected block type >> Bricks (%d)\n", currentBlockType);
+                fprintf(logFile, "INFO: Selected block type >> Bricks (%d)\n", currentBlockType);
+                SDL_Delay(100);
+            }
+        }
+        if (key_status[SDL_SCANCODE_3]) {
+            if (currentBlockType != 2) {
+                currentBlockType = 2;
+                printf("INFO: Selected block type >> Stone (%d)\n", currentBlockType);
+                fprintf(logFile, "INFO: Selected block type >> Stone (%d)\n", currentBlockType);
+                SDL_Delay(100);
+            }
+        }
+        if (key_status[SDL_SCANCODE_4]) {
+            if (currentBlockType != 3) {
+                currentBlockType = 3;
+                printf("INFO: Selected block type >> Glass (%d)\n", currentBlockType);
+                fprintf(logFile, "INFO: Selected block type >> Glass (%d)\n", currentBlockType);
+                SDL_Delay(100);
+            }
+        }
+        if (key_status[SDL_SCANCODE_5]) {
+            if (currentBlockType != 4) {
+                currentBlockType = 4;
+                printf("INFO: Selected block type >> Log (%d)\n", currentBlockType);
+                fprintf(logFile, "INFO: Selected block type >> Log (%d)\n", currentBlockType);
+            }
+        }
+
         int old_x = player.rect.x;
         int old_y = player.rect.y;
 
@@ -518,25 +597,20 @@ int main (){
             SDL_RenderDrawRect(renderer, &blockCursor.rect);
         }
 
-        // Do hlavní smyčky (while (running)) přidejte:
         if (key_status[SDL_SCANCODE_F5]) {
-            // Uložit hru
             if (saveWorld("world.acsave", blocks, blocks_count, &player, logFile)) {
-                // Můžete zobrazit zprávu o úspěšném uložení
                 printf("INFO: Game saved successfully\n");
                 fprintf(logFile, "INFO: Game saved successfully\n");
             }
-            SDL_Delay(200); // Zabránění opakovanému stisknutí
+            SDL_Delay(200);
         }
 
         if (key_status[SDL_SCANCODE_F9]) {
-            // Načíst hru
             if (loadWorld("world.acsave", blocks, &blocks_count, &player, logFile)) {
-                // Můžete zobrazit zprávu o úspěšném načtení
                 printf("INFO: Game loaded successfully\n");
                 fprintf(logFile, "INFO: Game loaded successfully\n");
             }
-            SDL_Delay(200); // Zabránění opakovanému stisknutí
+            SDL_Delay(200);
         }
 
         if (buttons & SDL_BUTTON_RMASK) {
@@ -556,11 +630,11 @@ int main (){
             if (inside && blockCursor.active && !SDL_HasIntersection(&blockCursor.rect, &player.rect) && !collisionBlock && blocks_count < MAX_BLOCKS) {
                 blocks[blocks_count].rect = blockCursor.rect;
                 blocks[blocks_count].active = 1;
+                blocks[blocks_count].type = currentBlockType;
                 blocks_count++;
-                printf("INFO: Block added >> |pos: x=%d, y=%d|||id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, blocks_count);
-                fprintf(logFile, "INFO: Block added >> |pos: x=%d, y=%d||id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, blocks_count);
+                printf("INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, blocks_count);
+                fprintf(logFile, "INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, blocks_count);
             }
-
         }
 
         if (buttons & SDL_BUTTON_LMASK){
@@ -568,10 +642,10 @@ int main (){
                 if (blocks[i].active && blockCursor.active &&
                     mouseX >= blocks[i].rect.x && mouseX < blocks[i].rect.x + blocks[i].rect.w &&
                     mouseY >= blocks[i].rect.y && mouseY < blocks[i].rect.y + blocks[i].rect.h) {
+                    printf("INFO: Block removed >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks[i].type, i);
+                    fprintf(logFile, "INFO: Block removed >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks[i].type, i);
                     blocks[i] = blocks[blocks_count - 1];
                     blocks_count--;
-                    printf("INFO: Block removed >> |pos: x=%d, y=%d||id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks_count);
-                    fprintf(logFile, "INFO: Block removed >> |pos: x=%d, y=%d||id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks_count);
                     break;
                 }
             }
@@ -579,7 +653,17 @@ int main (){
 
         for (int i = 0; i < blocks_count; i++) {
             if (blocks[i].active) {
-                SDL_RenderCopy(renderer, blockTexture, NULL, &blocks[i].rect);
+                if (blocks[i].type == 0) {
+                    SDL_RenderCopy(renderer, blockWoodTexture, NULL, &blocks[i].rect);
+                } else if (blocks[i].type == 1) {
+                    SDL_RenderCopy(renderer, blockBricksTexture, NULL, &blocks[i].rect);
+                } else if (blocks[i].type == 2) {
+                    SDL_RenderCopy(renderer, blockStoneTexture, NULL, &blocks[i].rect);
+                } else if (blocks[i].type == 3) {
+                    SDL_RenderCopy(renderer, blockGlassTexture, NULL, &blocks[i].rect);
+                } else if (blocks[i].type == 4) {
+                    SDL_RenderCopy(renderer, blockLogTexture, NULL, &blocks[i].rect);
+                }
             }
         }
 
@@ -601,18 +685,45 @@ int main (){
         SDL_Surface* fontSurface2 = TTF_RenderText_Solid(font, buffer2, textcolor);
         SDL_Texture* fontTexture2 = SDL_CreateTextureFromSurface(renderer, fontSurface2);
 
+        char* currentBlockTypeString = "Wood";
+
+        if (currentBlockType == 0) {
+            currentBlockTypeString = "Wood";
+        } else if (currentBlockType == 1) {
+            currentBlockTypeString = "Bricks";
+        } else if (currentBlockType == 2) {
+            currentBlockTypeString = "Stone";
+        } else if (currentBlockType == 3) {
+            currentBlockTypeString = "Glass";
+        } else if (currentBlockType == 4) {
+            currentBlockTypeString = "Log";
+        }
+
+        sprintf(buffer3, "Type: %d (%s)", currentBlockType, currentBlockTypeString);
+
+        int textWidth3, textHeight3;
+        TTF_SizeText(font, buffer3, &textWidth3, &textHeight3);
+
+        SDL_Surface* fontSurface3 = TTF_RenderText_Solid(font, buffer3, textcolor);
+        SDL_Texture* fontTexture3 = SDL_CreateTextureFromSurface(renderer, fontSurface3);
+
         infoTextRect.w = textWidth1;
         infoTextRect.h = textHeight1;
         livesTextRect.w = textWidth2;
         livesTextRect.h = textHeight2;
+        typeTextRect.w = textWidth3;
+        typeTextRect.h = textHeight3;
 
         SDL_RenderCopy(renderer, fontTexture1, NULL, &infoTextRect);
         SDL_RenderCopy(renderer, fontTexture2, NULL, &livesTextRect);
+        SDL_RenderCopy(renderer, fontTexture3, NULL, &typeTextRect);
 
         SDL_FreeSurface(fontSurface1);
         SDL_FreeSurface(fontSurface2);
+        SDL_FreeSurface(fontSurface3);
         SDL_DestroyTexture(fontTexture1);
         SDL_DestroyTexture(fontTexture2);
+        SDL_DestroyTexture(fontTexture3);
 
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
@@ -627,9 +738,13 @@ int main (){
     SDL_DestroyTexture(playerTexture);
     printf("INFO: Destroying Texture >> playerTexture\n");
     fprintf(logFile, "INFO: Destroying Texture >> playerTexture\n");
-    SDL_DestroyTexture(blockTexture);
-    printf("INFO: Destroying Texture >> blockTexture\n");
-    fprintf(logFile, "INFO: Destroying Texture >> blockTexture\n");
+    SDL_DestroyTexture(blockWoodTexture);
+    SDL_DestroyTexture(blockBricksTexture);
+    SDL_DestroyTexture(blockStoneTexture);
+    SDL_DestroyTexture(blockGlassTexture);
+    SDL_DestroyTexture(blockLogTexture);
+    printf("INFO: Destroying Textures >> blockTextures: Wood, Bricks, Stone, Glass, Log\n");
+    fprintf(logFile, "INFO: Destroying Textures >> blockTextures: Wood, Bricks, Stone, Glass, Log\n");
     TTF_CloseFont(font);
     printf("INFO: Closing Font >> font.ttf\n");
     fprintf(logFile, "INFO: Closing Font >> font.ttf\n");
