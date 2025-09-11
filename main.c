@@ -155,6 +155,7 @@ int saveWorld(const char* filename, Block* blocks, int blocks_count, Player* pla
     if (saveFile == NULL) {
         printf("ERR: Failed to create save file >> %s\n", filename);
         fprintf(logFile, "ERR: Failed to create save file >> %s\n", filename);
+        show_status_message(&statusMessage, "Failed to Create World!", 180);
         return 0;
     }
 
@@ -192,7 +193,7 @@ int loadWorld(const char* filename, Block* blocks, int* blocks_count, Player* pl
     if (saveFile == NULL) {
         printf("ERR: Failed to open save file >> %s\n", filename);
         fprintf(logFile, "ERR: Failed to open save file >> %s\n", filename);
-        show_status_message(&statusMessage, "World Loaded!", 180);
+        show_status_message(&statusMessage, "Open the World Failed!", 180);
         return 0;
     }
 
@@ -222,6 +223,7 @@ int loadWorld(const char* filename, Block* blocks, int* blocks_count, Player* pl
 
     printf("INFO: World loaded >> %s (blocks: %d)\n", filename, *blocks_count);
     fprintf(logFile, "INFO: World loaded >> %s (blocks: %d)\n", filename, *blocks_count);
+    show_status_message(&statusMessage, "World Loaded!", 180);
     return 1;
 }
 
