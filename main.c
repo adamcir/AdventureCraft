@@ -605,30 +605,39 @@ int main () {
             if (collision) player.rect.y = old_y;
             player.rect.x = backup_x;
 
+            mouseX = (mouseXI / 100) * 100;
+            mouseY = (mouseYI / 100) * 100;
+
+            Block_cursor blockCursor = {
+                .rect = {mouseX, mouseY, 100, 100},
+                .active = 1
+            };
+
+            if (blockCursor.rect.x >= player.rect.x + 300 || blockCursor.rect.y >= player.rect.y + 400 || blockCursor.rect.x <= player.rect.x - 400 || blockCursor.rect.y <= player.rect.y - 400) {
+                blockCursor.active = 0;
+            }
+
             if (buttons & SDL_BUTTON_RMASK) {
                 int collisionBlock = 0;
                 int inside =
-                    mouseX >= 0 &&
-                    mouseY >= 0 &&
-                    mouseX + 100 <= window_width &&
-                    mouseY + 100 <= window_height;
-
-                SDL_Rect blockCursor = {(mouseXI / 100) * 100, (mouseYI / 100) * 100, 100, 100};
+                    blockCursor.rect.x >= 0 &&
+                    blockCursor.rect.y >= 0 &&
+                    blockCursor.rect.x + blockCursor.rect.w <= window_width &&
+                    blockCursor.rect.y + blockCursor.rect.h <= window_height;
 
                 for (int i = 0; i < blocks_count; i++) {
-                    if (blocks[i].active && SDL_HasIntersection(&blockCursor, &blocks[i].rect)) {
+                    if (blocks[i].active && SDL_HasIntersection(&blockCursor.rect, &blocks[i].rect)) {
                         collisionBlock = 1;
                         break;
                     }
                 }
-
-                if (inside && !SDL_HasIntersection(&blockCursor, &player.rect) && !collisionBlock && blocks_count < MAX_BLOCKS) {
-                    blocks[blocks_count].rect = blockCursor;
+                if (inside && blockCursor.active && !SDL_HasIntersection(&blockCursor.rect, &player.rect) && !collisionBlock && blocks_count < MAX_BLOCKS) {
+                    blocks[blocks_count].rect = blockCursor.rect;
                     blocks[blocks_count].active = 1;
                     blocks[blocks_count].type = currentBlockType;
                     blocks_count++;
-                    printf("INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.x, blockCursor.y, currentBlockType, blocks_count);
-                    fprintf(logFile, "INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.x, blockCursor.y, currentBlockType, blocks_count);
+                    printf("INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, blocks_count);
+                    fprintf(logFile, "INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, blocks_count);
                 }
             }
 
