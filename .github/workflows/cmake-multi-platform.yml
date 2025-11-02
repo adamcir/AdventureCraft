@@ -51,3 +51,9 @@ jobs:
       - name: Test
         working-directory: build
         run: ctest --build-config ${{ matrix.build_type }}
+        
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdventureCraft-build
+          path: build/AdventureCraft
