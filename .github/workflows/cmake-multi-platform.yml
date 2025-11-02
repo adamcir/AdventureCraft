@@ -36,12 +36,20 @@ jobs:
           sudo apt-get install -y build-essential cmake \
             libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
 
+      # --- Windows SDL2 deps (vcpkg) ---
+      - name: Setup vcpkg (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: microsoft/vcpkg-action@v11
+        with:
+          triplet: x64-windows
+
+      - name: Install SDL2 packages (Windows)
+        if: matrix.os == 'windows-latest'
+        run: vcpkg install sdl2 sdl2-image sdl2-ttf sdl2-mixer
+
       # --- Configure ---
       - name: Configure CMake
-        run: cmake -B build -S . \
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        run: cmake -B build -S . -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ${{ matrix.os == 'windows-latest' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake' || '' }}
 
       # --- Build ---
       - name: Build
@@ -51,9 +59,13 @@ jobs:
       - name: Test
         working-directory: build
         run: ctest --build-config ${{ matrix.build_type }}
-        
+
+      # --- Upload binary artifact ---
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: AdventureCraft-build
-          path: build/AdventureCraft
+          name: AdventureCraft-build-${{ matrix.os }}
+          path: |
+            build/AdventureCraft
+            build/Release/AdventureCraft.exe
+          if-no-files-found: ignore
