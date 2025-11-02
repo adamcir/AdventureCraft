@@ -22,6 +22,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,7 @@
 #include "games.h"
 
 #define MAX_BLOCKS 171
-#define VERSION "BLOCK_TEST6"
+#define VERSION "SOUND_TEST1"
 #define MAX_OPTIONS 4
 
 int mouseX, mouseY, mouseXI, mouseYI;
@@ -63,7 +64,11 @@ typedef struct {
     Player player_data;
     Block blocks_data[MAX_BLOCKS];
 } WorldSave;
-
+/*
+typedef enum {
+    MUSIC_WORLD
+} MusicState;
+*/
 const char *options[MAX_OPTIONS] = {
     "Resume",
     "Save World",
@@ -226,6 +231,37 @@ int loadWorld(const char* filename, Block* blocks, int* blocks_count, Player* pl
     show_status_message(&statusMessage, "World Loaded!", 180);
     return 1;
 }
+/*
+void playMusicState(MusicState state) {
+    static MusicState lastState = -1;
+
+    if (state == lastState) return;
+
+    lastState = state;
+
+    Mix_HaltMusic();
+
+    switch(state) {
+        case MUSIC_WORLD:
+            SDL_Delay(10000);
+            Mix_Music* music = Mix_LoadMUS("song2.mp3");
+            Mix_PlayMusic(music, -1);
+            break;
+    }
+}*/
+
+Mix_Chunk* step;
+int stepChannel = 0;
+Uint32 stepCooldown = 0;
+
+void playStep() {
+    Uint32 now = SDL_GetTicks();
+
+    if (now >= stepCooldown && !Mix_Playing(stepChannel)) {
+        Mix_PlayChannel(stepChannel, step, 0);
+        stepCooldown = now + 300;
+    }
+}
 
 int main () {
     time_t rawtime;
@@ -307,6 +343,22 @@ int main () {
         return 1;
     }
 
+    printf("INFO: Initializing >> SDL2 - Mixer\n");
+    fprintf(logFile, "INFO: Initializing >> SDL2 - Mixer\n");
+    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+        show_mini_window("Fatal", "Failed to initialize a SDL2_Mixer lib. Game crashed with code 1");
+        printf("FATAL: Failed to initialize >> SDL2_Mixer");
+        fprintf(logFile, "FATAL: Failed to initialize >> SDL2_Mixer");
+        fclose(logFile);
+        IMG_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    Mix_AllocateChannels(16);
+
+    Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024);
+
     window_width = 1900;
     window_height = 900;
     window = SDL_CreateWindow("AdventureCraft", SDL_WINDOWPOS_CENTERED, 0, window_width, window_height, SDL_WINDOW_SHOWN);
@@ -369,7 +421,7 @@ int main () {
 
     printf("INFO: Loading texture >> player.png\n");
     fprintf(logFile, "INFO: Loading texture >> player.png\n");
-    showLoadingScreen(renderer, font, "LOADING PLAYER TEXTURE...", 50, logFile);
+    showLoadingScreen(renderer, font, "LOADING ASSETS", 50, logFile);
     SDL_Surface* playerSurface = IMG_Load("textures/player.png");
     if (!playerSurface) {
         printf("ERR: Missing >> player.png: %s\n", IMG_GetError());
@@ -382,7 +434,6 @@ int main () {
 
     printf("INFO: Loading texture >> blocksTexture.png\n");
     fprintf(logFile, "INFO: Loading texture >> blocksTexture.png\n");
-    showLoadingScreen(renderer, font, "LOADING BLOCKS TEXTURES...", 80, logFile);
 
     SDL_Surface* blocksSurface = IMG_Load("textures/blocksTexture.png");
 
@@ -445,6 +496,25 @@ int main () {
         return 1;
     }
 
+    printf("INFO: Loading sounds >> block.wav, step.wav\n");
+    fprintf(logFile, "INFO: Loading sounds >> block.wav, step.wav\n");
+    Mix_Chunk *block = Mix_LoadWAV("sounds/block.wav");
+    step = Mix_LoadWAV("sounds/step.wav");
+
+    if (!block || !step) {
+        showLoadingScreen(renderer, font, "EXITING", 100, logFile);
+        SDL_DestroyWindow(window);
+        SDL_DestroyRenderer(renderer);
+        show_mini_window("Error", "Failed to load sounds. Game crashed with code 1.");
+        printf("ERR: Failed to load >> sounds");
+        fprintf(logFile, "ERR: Failed to load >> sounds");
+        fclose(logFile);
+        Mix_Quit();
+        IMG_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
     showLoadingScreen(renderer, font, "LOADING COMPLETE!", 100, logFile);
     printf("INFO: All assets are loaded\n");
     fprintf(logFile, "INFO: All assets are loaded\n");
@@ -482,7 +552,6 @@ int main () {
                     break;
             }
         }
-
         Uint32 buttons = SDL_GetMouseState(&mouseX, &mouseY);
         const Uint8* key_status = SDL_GetKeyboardState(NULL);
 
@@ -563,11 +632,13 @@ int main () {
                 new_x -= player.speed;
                 printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
                 fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
+                playStep();
             }
             if (key_status[SDL_SCANCODE_D] && player.rect.x < window_width - player.rect.w) {
                 new_x += player.speed;
                 printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
                 fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
+                playStep();
             }
 
             player.rect.x = new_x;
@@ -585,11 +656,13 @@ int main () {
                 new_y -= player.speed;
                 printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
                 fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
+                playStep();
             }
             if (key_status[SDL_SCANCODE_S] && player.rect.y < window_height - player.rect.h) {
                 new_y += player.speed;
                 printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
                 fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
+                playStep();
             }
 
             int backup_x = player.rect.x;
@@ -638,6 +711,8 @@ int main () {
                     blocks_count++;
                     printf("INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, blocks_count);
                     fprintf(logFile, "INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, blocks_count);
+                    Mix_HaltChannel(1);
+                    Mix_PlayChannel(1, block, 0);
                 }
             }
 
@@ -648,6 +723,8 @@ int main () {
                         mouseY >= blocks[i].rect.y && mouseY < blocks[i].rect.y + blocks[i].rect.h) {
                         printf("INFO: Block removed >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks[i].type, i);
                         fprintf(logFile, "INFO: Block removed >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks[i].type, i);
+                        Mix_HaltChannel(1);
+                        Mix_PlayChannel(1, block, 0);
                         blocks[i] = blocks[blocks_count - 1];
                         blocks_count--;
                         break;
@@ -781,6 +858,7 @@ int main () {
         render_status_bar(renderer, font, &statusMessage, window_width, window_height);
 
         SDL_RenderPresent(renderer);
+        //playMusicState(MUSIC_WORLD);
         SDL_Delay(16);
     }
 
@@ -808,6 +886,16 @@ int main () {
     TTF_Quit();
     printf("INFO: Quiting >> SDL2_ttf\n");
     fprintf(logFile, "INFO: Quiting >> SDL2_ttf\n");
+    Mix_FreeChunk(block);
+    printf("INFO: Cleaning Mix_Chunk >> block\n");
+    fprintf(logFile, "INFO: Cleaning Mix_Chunk >> block\n");
+    Mix_FreeChunk(step);
+    printf("INFO: Cleaning Mix_Chunk >> step\n");
+    fprintf(logFile, "INFO: Cleaning Mix_Chunk >> step\n");
+    Mix_CloseAudio();
+    printf("INFO: Closing >> Audio\n");
+    Mix_Quit();
+    printf("INFO: Quiting >> SDL_Mixer\n");
     SDL_Quit();
     printf("INFO: Quiting >> SDL2\n");
     fprintf(logFile, "INFO: Quiting >> SDL2\n");
