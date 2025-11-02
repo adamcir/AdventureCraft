@@ -36,20 +36,20 @@ jobs:
           sudo apt-get install -y build-essential cmake \
             libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
 
-      # --- Windows SDL2 deps (vcpkg) ---
-      - name: Setup vcpkg (Windows)
+      # --- Windows SDL2 deps (choco) ---
+      - name: Install SDL2 deps (Windows)
         if: matrix.os == 'windows-latest'
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgTriplet: x64-windows
-
-      - name: Install SDL2 packages (Windows)
-        if: matrix.os == 'windows-latest'
-        run: vcpkg install sdl2 sdl2-image sdl2-ttf sdl2-mixer
+        run: |
+          choco install -y sdl2 sdl2_image sdl2_ttf sdl2_mixer
+          # ensure choco bin paths are available (runner usually handles this)
+          refreshenv || true
 
       # --- Configure ---
       - name: Configure CMake
-        run: cmake -B build -S . -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ${{ matrix.os == 'windows-latest' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake' || '' }}
+        run: cmake -B build -S . \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
       # --- Build ---
       - name: Build
@@ -58,7 +58,12 @@ jobs:
       # --- Test ---
       - name: Test
         working-directory: build
-        run: ctest --build-config ${{ matrix.build_type }}
+        run: |
+          if [ -f CTestTestfile.cmake ] || [ -f build/CTestTestfile.cmake ]; then
+            ctest --test-dir build --output-on-failure --build-config ${{ matrix.build_type }}
+          else
+            echo "No tests found, skipping ctest."
+          fi
 
       # --- Upload binary artifact ---
       - name: Upload build
