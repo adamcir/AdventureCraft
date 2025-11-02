@@ -1,55 +1,53 @@
-name: CMake Multiplatform Build
+name: CMake Build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Release]
         include:
-          # Windows + MSVC
           - os: windows-latest
-            generator: "Visual Studio 17 2022"
-            build_type: Release
-          # Linux + GCC
+            c_compiler: cl
+            cpp_compiler: cl
           - os: ubuntu-latest
-            generator: "Unix Makefiles"
             c_compiler: gcc
             cpp_compiler: g++
-            build_type: Release
-          # Linux + Clang
           - os: ubuntu-latest
-            generator: "Unix Makefiles"
             c_compiler: clang
             cpp_compiler: clang++
-            build_type: Release
-
-    runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Configure CMake
-      run: |
-        mkdir -p build
-        cmake -B build -G "${{ matrix.generator }}" \
-              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-              -DCMAKE_C_COMPILER=${{ matrix.c_compiler || '' }} \
-              -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler || '' }} \
-              -S .
+      # --- Linux SDL2 deps ---
+      - name: Install SDL2 deps (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake \
+            libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
 
-    - name: Build
-      run: cmake --build build --config ${{ matrix.build_type }}
+      # --- Configure ---
+      - name: Configure CMake
+        run: cmake -B build -S . \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
-    - name: Run tests
-      run: |
-        if [ -f build/CTestTestfile.cmake ]; then
-          ctest --test-dir build --output-on-failure --build-config ${{ matrix.build_type }}
-        else
-          echo "No tests found, skipping ctest."
-        fi
+      # --- Build ---
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --verbose
+
+      # --- Test ---
+      - name: Test
+        working-directory: build
+        run: ctest --build-config ${{ matrix.build_type }}
