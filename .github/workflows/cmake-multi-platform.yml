@@ -39,9 +39,9 @@ jobs:
       # --- Windows SDL2 deps (vcpkg) ---
       - name: Setup vcpkg (Windows)
         if: matrix.os == 'windows-latest'
-        uses: microsoft/vcpkg-action@v11
+        uses: lukka/run-vcpkg@v11
         with:
-          triplet: x64-windows
+          vcpkgTriplet: x64-windows
 
       - name: Install SDL2 packages (Windows)
         if: matrix.os == 'windows-latest'
