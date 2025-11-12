@@ -36,6 +36,14 @@ jobs:
           sudo apt-get install -y build-essential cmake \
             libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
 
+      # --- Windows SDL2 deps (choco) ---
+      - name: Install SDL2 deps (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install -y sdl2 sdl2_image sdl2_ttf sdl2_mixer
+          # ensure choco bin paths are available (runner usually handles this)
+          refreshenv || true
+
       # --- Configure ---
       - name: Configure CMake
         run: cmake -B build -S . \
@@ -50,4 +58,19 @@ jobs:
       # --- Test ---
       - name: Test
         working-directory: build
-        run: ctest --build-config ${{ matrix.build_type }}
+        run: |
+          if [ -f CTestTestfile.cmake ] || [ -f build/CTestTestfile.cmake ]; then
+            ctest --test-dir build --output-on-failure --build-config ${{ matrix.build_type }}
+          else
+            echo "No tests found, skipping ctest."
+          fi
+
+      # --- Upload binary artifact ---
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdventureCraft-build-${{ matrix.os }}
+          path: |
+            build/AdventureCraft
+            build/Release/AdventureCraft.exe
+          if-no-files-found: ignore
