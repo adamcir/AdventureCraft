@@ -29,9 +29,13 @@
 #include <time.h>
 #include "games.h"
 
-#define MAX_BLOCKS 171
-#define VERSION "SOUND_TEST1"
+#define YEAR 2025
+#define VERSION "LAYER_TEST1"
 #define MAX_OPTIONS 4
+
+#define MOUSE_COOLDOWN_MS 150
+#define MAX_LAYERS 4
+#define MAX_BLOCKS 171 * MAX_LAYERS
 
 int mouseX, mouseY, mouseXI, mouseYI;
 int blocks_count = 0;
@@ -41,16 +45,20 @@ int currentBlockType = 0;
 int showMenu = 0;
 int selectedOption = -1;
 
+Uint32 lastMouseClickTime = 0;
+
 typedef struct {
     SDL_Rect rect;
     int speed;
     int lives;
+    int currentLayer;
 } Player;
 
 typedef struct {
     SDL_Rect rect;
     int active;
     int type;
+    int layer;
 } Block;
 
 typedef struct {
@@ -64,11 +72,7 @@ typedef struct {
     Player player_data;
     Block blocks_data[MAX_BLOCKS];
 } WorldSave;
-/*
-typedef enum {
-    MUSIC_WORLD
-} MusicState;
-*/
+
 const char *options[MAX_OPTIONS] = {
     "Resume",
     "Save World",
@@ -181,8 +185,8 @@ int saveWorld(const char* filename, Block* blocks, int blocks_count, Player* pla
     fclose(saveFile);
 
     if (written == 1) {
-        printf("INFO: World saved >> %s\n", filename);
-        fprintf(logFile, "INFO: World saved >> %s\n", filename);
+        printf("INFO: World saved >> %s (player layer: %d)\n", filename, player->currentLayer);
+        fprintf(logFile, "INFO: World saved >> %s (player layer: %d)\n", filename, player->currentLayer);
         show_status_message(&statusMessage, "World Saved!", 180);
         return 1;
     } else {
@@ -222,33 +226,40 @@ int loadWorld(const char* filename, Block* blocks, int* blocks_count, Player* pl
     *blocks_count = worldSave.blocks_count;
     *player = worldSave.player_data;
 
-    for (int i = 0; i < MAX_BLOCKS; i++) {
-        blocks[i] = worldSave.blocks_data[i];
+    if (player->currentLayer >= MAX_LAYERS) {
+        printf("WARN: Loaded player layer %d exceeds MAX_LAYERS (%d). Capping to %d.\n", player->currentLayer, MAX_LAYERS, MAX_LAYERS - 1);
+        fprintf(logFile, "WARN: Loaded player layer %d exceeds MAX_LAYERS (%d). Capping to %d.\n", player->currentLayer, MAX_LAYERS, MAX_LAYERS - 1);
+        player->currentLayer = MAX_LAYERS - 1;
+    } else if (player->currentLayer < 0) {
+        player->currentLayer = 0;
     }
 
-    printf("INFO: World loaded >> %s (blocks: %d)\n", filename, *blocks_count);
-    fprintf(logFile, "INFO: World loaded >> %s (blocks: %d)\n", filename, *blocks_count);
+
+    int new_blocks_count = 0;
+
+    for (int i = 0; i < worldSave.blocks_count && i < MAX_BLOCKS; i++) {
+        if (worldSave.blocks_data[i].active && worldSave.blocks_data[i].layer < MAX_LAYERS) {
+            blocks[new_blocks_count] = worldSave.blocks_data[i];
+            new_blocks_count++;
+        } else if (worldSave.blocks_data[i].active && worldSave.blocks_data[i].layer >= MAX_LAYERS) {
+            printf("WARN: Discarded block at index %d (layer %d >= MAX_LAYERS %d).\n", i, worldSave.blocks_data[i].layer, MAX_LAYERS);
+            fprintf(logFile, "WARN: Discarded block at index %d (layer %d >= MAX_LAYERS %d).\n", i, worldSave.blocks_data[i].layer, MAX_LAYERS);
+        }
+    }
+
+    for (int i = new_blocks_count; i < MAX_BLOCKS; i++) {
+        blocks[i].active = 0;
+    }
+
+    *blocks_count = new_blocks_count;
+
+    lastMouseClickTime = 0;
+
+    printf("INFO: World loaded >> %s (blocks: %d, player layer: %d, max layers: %d)\n", filename, *blocks_count, player->currentLayer, MAX_LAYERS);
+    fprintf(logFile, "INFO: World loaded >> %s (blocks: %d, player layer: %d, max layers: %d)\n", filename, *blocks_count, player->currentLayer, MAX_LAYERS);
     show_status_message(&statusMessage, "World Loaded!", 180);
     return 1;
 }
-/*
-void playMusicState(MusicState state) {
-    static MusicState lastState = -1;
-
-    if (state == lastState) return;
-
-    lastState = state;
-
-    Mix_HaltMusic();
-
-    switch(state) {
-        case MUSIC_WORLD:
-            SDL_Delay(10000);
-            Mix_Music* music = Mix_LoadMUS("song2.mp3");
-            Mix_PlayMusic(music, -1);
-            break;
-    }
-}*/
 
 Mix_Chunk* step;
 int stepChannel = 0;
@@ -288,7 +299,7 @@ int main () {
     printf("     ADAVA SOFTWARE by\n");
     printf("       (C) Adam Cír\n");
     printf("===========================\n");
-    printf("Copyright (C) 2025 Adam Cír\n");
+    printf("Copyright (C) %d Adam Cír\n", YEAR);
     printf("AdventureCraft %s\n", VERSION);
     printf("===========================\n");
     printf("  This software is under\n");
@@ -300,7 +311,7 @@ int main () {
     fprintf(logFile, "     ADAVA SOFTWARE by\n");
     fprintf(logFile, "       (C) Adam Cír\n");
     fprintf(logFile, "===========================\n");
-    fprintf(logFile, "Copyright (C) 2025 Adam Cír\n");
+    fprintf(logFile, "Copyright (C) %d Adam Cír\n", YEAR);
     fprintf(logFile, "AdventureCraft%s\n", VERSION);
     fprintf(logFile, "===========================\n");
     fprintf(logFile, "  This software is under\n");
@@ -442,7 +453,7 @@ int main () {
         fprintf(logFile, "ERR: Missing >> blocksTexture.png: %s\n", IMG_GetError());
     } else {
         printf("INFO: Textures loaded >> Blocks: %dx%d (px)\n", blocksSurface->w, blocksSurface->h);
-        fprintf(logFile, "INFO: Textures loaded >> Blocks: %dx%d (px)\n", blocksSurface->w, blocksSurface->h);
+        fprintf(logFile, "INFO: Textures loaded >> Blocks: %dx%d (px)\n", blocksSurface->h, blocksSurface->h);
     }
 
     printf("INFO: Loading texture >> button.png\n");
@@ -537,7 +548,8 @@ int main () {
     Player player = {
         .rect = {window_width/2 - 30, window_height/2 - 50, 45, 100},
         .speed = 5,
-        .lives = 3
+        .lives = 3,
+        .currentLayer = 0
     };
 
     printf("INFO: Launched >> AdventureCraft, Starting >> Main game loop\n");
@@ -554,6 +566,7 @@ int main () {
         }
         Uint32 buttons = SDL_GetMouseState(&mouseX, &mouseY);
         const Uint8* key_status = SDL_GetKeyboardState(NULL);
+        Uint32 now = SDL_GetTicks();
 
         if (player.lives <= 0) {
             show_mini_window("Info", "You died.");
@@ -630,46 +643,77 @@ int main () {
             int new_x = player.rect.x;
             if (key_status[SDL_SCANCODE_A] && player.rect.x > 0) {
                 new_x -= player.speed;
-                printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
-                fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
                 playStep();
             }
             if (key_status[SDL_SCANCODE_D] && player.rect.x < window_width - player.rect.w) {
                 new_x += player.speed;
-                printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
-                fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", new_x, player.rect.y);
                 playStep();
             }
 
             player.rect.x = new_x;
             int collision = 0;
             for (int i = 0; i < blocks_count; i++) {
-                if (blocks[i].active && SDL_HasIntersection(&player.rect, &blocks[i].rect)) {
+                if (blocks[i].active && blocks[i].layer == player.currentLayer && SDL_HasIntersection(&player.rect, &blocks[i].rect)) {
                     collision = 1;
                     break;
                 }
             }
+
             if (collision) player.rect.x = old_x;
 
             int new_y = player.rect.y;
             if (key_status[SDL_SCANCODE_W] && player.rect.y > 0) {
                 new_y -= player.speed;
-                printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
-                fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
                 playStep();
             }
             if (key_status[SDL_SCANCODE_S] && player.rect.y < window_height - player.rect.h) {
                 new_y += player.speed;
-                printf("INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
-                fprintf(logFile, "INFO: Player moved >> |pos: x=%d, y=%d|\n", player.rect.x, new_y);
                 playStep();
+            }
+
+            if (key_status[SDL_SCANCODE_SPACE]) {
+                int nextLayer = player.currentLayer + 1;
+                if (nextLayer < MAX_LAYERS) {
+                    int collision_Next = 0;
+                    for (int i = 0; i < blocks_count; i++) {
+                        if (blocks[i].active && blocks[i].layer == nextLayer && SDL_HasIntersection(&player.rect, &blocks[i].rect)) {
+                            collision_Next = 1;
+                            break;
+                        }
+                    }
+                    if (!collision_Next) {
+                        player.currentLayer = nextLayer;
+                        printf("INFO: Player moved to layer %d\n", player.currentLayer);
+                        fprintf(logFile, "INFO: Player moved to layer %d\n", player.currentLayer);
+                        SDL_Delay(200);
+                    }
+                }
+            }
+
+            if (key_status[SDL_SCANCODE_DOWN]) {
+                int prevLayer = player.currentLayer - 1;
+                if (prevLayer >= 0) {
+                    int collision_Prev = 0;
+                    for (int i = 0; i < blocks_count; i++) {
+                        if (blocks[i].active && blocks[i].layer == prevLayer && SDL_HasIntersection(&player.rect, &blocks[i].rect)) {
+                            collision_Prev = 1;
+                            break;
+                        }
+                    }
+                    if (!collision_Prev) {
+                        player.currentLayer = prevLayer;
+                        printf("INFO: Player moved to layer %d\n", player.currentLayer);
+                        fprintf(logFile, "INFO: Player moved to layer %d\n", player.currentLayer);
+                        SDL_Delay(200);
+                    }
+                }
             }
 
             int backup_x = player.rect.x;
             player.rect.y = new_y;
             collision = 0;
             for (int i = 0; i < blocks_count; i++) {
-                if (blocks[i].active && SDL_HasIntersection(&player.rect, &blocks[i].rect)) {
+                if (blocks[i].active && blocks[i].layer == player.currentLayer && SDL_HasIntersection(&player.rect, &blocks[i].rect)) {
                     collision = 1;
                     break;
                 }
@@ -691,43 +735,92 @@ int main () {
             }
 
             if (buttons & SDL_BUTTON_RMASK) {
-                int collisionBlock = 0;
-                int inside =
-                    blockCursor.rect.x >= 0 &&
-                    blockCursor.rect.y >= 0 &&
-                    blockCursor.rect.x + blockCursor.rect.w <= window_width &&
-                    blockCursor.rect.y + blockCursor.rect.h <= window_height;
+                if (now > lastMouseClickTime) {
 
-                for (int i = 0; i < blocks_count; i++) {
-                    if (blocks[i].active && SDL_HasIntersection(&blockCursor.rect, &blocks[i].rect)) {
-                        collisionBlock = 1;
-                        break;
+                    int targetLayer = -1;
+                    int inside =
+                        blockCursor.rect.x >= 0 &&
+                        blockCursor.rect.y >= 0 &&
+                        blockCursor.rect.x + blockCursor.rect.w <= window_width &&
+                        blockCursor.rect.y + blockCursor.rect.h <= window_height;
+
+                    if (inside && blockCursor.active && !SDL_HasIntersection(&blockCursor.rect, &player.rect)) {
+
+                        int collision_L = 0;
+                        for (int i = 0; i < blocks_count; i++) {
+                            if (blocks[i].active && blocks[i].layer == player.currentLayer && SDL_HasIntersection(&blockCursor.rect, &blocks[i].rect)) {
+                                collision_L = 1;
+                                break;
+                            }
+                        }
+
+                        int collision_L_minus_1 = 0;
+                        if (player.currentLayer > 0) {
+                            for (int i = 0; i < blocks_count; i++) {
+                                if (blocks[i].active && blocks[i].layer == (player.currentLayer - 1) && SDL_HasIntersection(&blockCursor.rect, &blocks[i].rect)) {
+                                    collision_L_minus_1 = 1;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (player.currentLayer > 0 && !collision_L_minus_1) {
+                            targetLayer = player.currentLayer - 1;
+                        } else if (!collision_L) {
+                            targetLayer = player.currentLayer;
+                        }
                     }
-                }
-                if (inside && blockCursor.active && !SDL_HasIntersection(&blockCursor.rect, &player.rect) && !collisionBlock && blocks_count < MAX_BLOCKS) {
-                    blocks[blocks_count].rect = blockCursor.rect;
-                    blocks[blocks_count].active = 1;
-                    blocks[blocks_count].type = currentBlockType;
-                    blocks_count++;
-                    printf("INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, blocks_count);
-                    fprintf(logFile, "INFO: Block added >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, blocks_count);
-                    Mix_HaltChannel(1);
-                    Mix_PlayChannel(1, block, 0);
+
+                    if (targetLayer != -1 && blocks_count < MAX_BLOCKS) {
+                        blocks[blocks_count].rect = blockCursor.rect;
+                        blocks[blocks_count].active = 1;
+                        blocks[blocks_count].type = currentBlockType;
+                        blocks[blocks_count].layer = targetLayer;
+                        blocks_count++;
+                        printf("INFO: Block added >> |pos: x=%d, y=%d|type: %d|layer: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, targetLayer, blocks_count);
+                        fprintf(logFile, "INFO: Block added >> |pos: x=%d, y=%d|type: %d|layer: %d|id: %d|\n", blockCursor.rect.x, blockCursor.rect.y, currentBlockType, targetLayer, blocks_count);
+                        Mix_HaltChannel(1);
+                        Mix_PlayChannel(1, block, 0);
+                        lastMouseClickTime = now + MOUSE_COOLDOWN_MS;
+                    }
                 }
             }
 
+
             if (buttons & SDL_BUTTON_LMASK){
-                for (int i = 0; i < blocks_count; i++) {
-                    if (blocks[i].active &&
-                        mouseX >= blocks[i].rect.x && mouseX < blocks[i].rect.x + blocks[i].rect.w &&
-                        mouseY >= blocks[i].rect.y && mouseY < blocks[i].rect.y + blocks[i].rect.h) {
-                        printf("INFO: Block removed >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks[i].type, i);
-                        fprintf(logFile, "INFO: Block removed >> |pos: x=%d, y=%d|type: %d|id: %d|\n", blocks[i].rect.x, blocks[i].rect.y, blocks[i].type, i);
+                if (now > lastMouseClickTime) {
+                    int target_index = -1;
+
+                    for (int i = 0; i < blocks_count; i++) {
+                        if (blocks[i].active && blocks[i].layer == player.currentLayer &&
+                            mouseX >= blocks[i].rect.x && mouseX < blocks[i].rect.x + blocks[i].rect.w &&
+                            mouseY >= blocks[i].rect.y && mouseY < blocks[i].rect.y + blocks[i].rect.h) {
+
+                            target_index = i;
+                            break;
+                        }
+                    }
+
+                    if (target_index == -1 && player.currentLayer > 0) {
+                        for (int i = 0; i < blocks_count; i++) {
+                            if (blocks[i].active && blocks[i].layer == (player.currentLayer - 1) &&
+                                mouseX >= blocks[i].rect.x && mouseX < blocks[i].rect.x + blocks[i].rect.w &&
+                                mouseY >= blocks[i].rect.y && mouseY < blocks[i].rect.y + blocks[i].rect.h) {
+
+                                target_index = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (target_index != -1) {
+                        printf("INFO: Block removed >> |pos: x=%d, y=%d|type: %d|layer: %d|id: %d|\n", blocks[target_index].rect.x, blocks[target_index].rect.y, blocks[target_index].type, blocks[target_index].layer, target_index);
+                        fprintf(logFile, "INFO: Block removed >> |pos: x=%d, y=%d|type: %d|layer: %d|id: %d|\n", blocks[target_index].rect.x, blocks[target_index].rect.y, blocks[target_index].type, blocks[target_index].layer, target_index);
                         Mix_HaltChannel(1);
                         Mix_PlayChannel(1, block, 0);
-                        blocks[i] = blocks[blocks_count - 1];
+                        blocks[target_index] = blocks[blocks_count - 1];
                         blocks_count--;
-                        break;
+                        lastMouseClickTime = now + MOUSE_COOLDOWN_MS;
                     }
                 }
             }
@@ -756,8 +849,32 @@ int main () {
             }
         }
 
+        SDL_SetTextureAlphaMod(blocksTexture, 100);
+
         for (int i = 0; i < blocks_count; i++) {
-            if (blocks[i].active) {
+            if (blocks[i].active && blocks[i].layer < player.currentLayer) {
+
+                if (blocks[i].type == 0) {
+                    SDL_RenderCopy(renderer, blocksTexture, &woodRect, &blocks[i].rect);
+                } else if (blocks[i].type == 1) {
+                    SDL_RenderCopy(renderer, blocksTexture, &bricksRect, &blocks[i].rect);
+                } else if (blocks[i].type == 2) {
+                    SDL_RenderCopy(renderer, blocksTexture, &stoneRect, &blocks[i].rect);
+                } else if (blocks[i].type == 3) {
+                    SDL_RenderCopy(renderer, blocksTexture, &glassRect, &blocks[i].rect);
+                } else if (blocks[i].type == 4) {
+                    SDL_RenderCopy(renderer, blocksTexture, &logRect, &blocks[i].rect);
+                } else if (blocks[i].type == 5) {
+                    SDL_RenderCopy(renderer, blocksTexture, &grassRect, &blocks[i].rect);
+                }
+            }
+        }
+
+        SDL_SetTextureAlphaMod(blocksTexture, 255);
+
+        for (int i = 0; i < blocks_count; i++) {
+            if (blocks[i].active && blocks[i].layer == player.currentLayer) {
+
                 if (blocks[i].type == 0) {
                     SDL_RenderCopy(renderer, blocksTexture, &woodRect, &blocks[i].rect);
                 } else if (blocks[i].type == 1) {
@@ -804,7 +921,7 @@ int main () {
                 currentBlockTypeString = "Grass";
             }
 
-            sprintf(buffer3, "Type: %d (%s)", currentBlockType, currentBlockTypeString);
+            sprintf(buffer3, "Type: %d (%s) | Layer: %d/%d", currentBlockType, currentBlockTypeString, player.currentLayer, MAX_LAYERS - 1);
             int textWidth3, textHeight3;
             TTF_SizeText(font, buffer3, &textWidth3, &textHeight3);
             SDL_Surface* fontSurface3 = TTF_RenderText_Solid(font, buffer3, textcolor);
@@ -858,7 +975,6 @@ int main () {
         render_status_bar(renderer, font, &statusMessage, window_width, window_height);
 
         SDL_RenderPresent(renderer);
-        //playMusicState(MUSIC_WORLD);
         SDL_Delay(16);
     }
 
