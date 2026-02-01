@@ -92,7 +92,10 @@ void render_overlay(SDL_Renderer* renderer) {
 }
 
 void render_inGameMenu(SDL_Renderer* renderer, TTF_Font* font, SDL_Texture* buttonTexture, const char *options[], int optionsCount, int* selectedOption) {
-    render_overlay(renderer);
+    SDL_Rect fullScreen = {0, 0, 1900, 900};
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 128);
+    SDL_RenderFillRect(renderer, &fullScreen);
 
     SDL_Rect buttonRect_noClicked = {0, 0, 200, 20};
     SDL_Rect buttonRect_clicked = {0, 20, 200, 20};
@@ -100,11 +103,13 @@ void render_inGameMenu(SDL_Renderer* renderer, TTF_Font* font, SDL_Texture* butt
     SDL_Color textcolorBlack = {0, 0, 0, 255};
     SDL_Color textcolorWhite = {255, 255, 255, 255};
 
-    int mouseX, mouseY;
-    SDL_GetMouseState(&mouseX, &mouseY);
+    int rX, rY;
+    SDL_GetMouseState(&rX, &rY);
+    float mouseX, mouseY;
+    SDL_RenderWindowToLogical(renderer, rX, rY, &mouseX, &mouseY);
 
-    int screenWidth, screenHeight;
-    SDL_GetRendererOutputSize(renderer, &screenWidth, &screenHeight);
+    int screenWidth = 1900;
+    int screenHeight = 900;
 
     int buttonWidth = 1000;
     int buttonHeight = 100;
@@ -123,7 +128,8 @@ void render_inGameMenu(SDL_Renderer* renderer, TTF_Font* font, SDL_Texture* butt
             buttonHeight
         };
 
-        int isHovered = cursor_in_rect(mouseX, mouseY, &buttonPos);
+        int isHovered = (mouseX >= buttonPos.x && mouseX < buttonPos.x + buttonPos.w &&
+                         mouseY >= buttonPos.y && mouseY < buttonPos.y + buttonPos.h);
 
         if (isHovered) {
             *selectedOption = i;

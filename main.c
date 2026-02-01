@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Adam Cír
+ * Copyright (C) 2025 - 2026 Adam Cír
  *
  * AdventureCraft
  *
@@ -29,12 +29,12 @@
 #include <time.h>
 #include "games.h"
 
-#define YEAR 2025
-#define VERSION "LAYER_TEST1"
+#define YEAR 2026
+#define VERSION "RENDER_TEST1"
 #define MAX_OPTIONS 4
 
 #define MOUSE_COOLDOWN_MS 150
-#define MAX_LAYERS 4
+#define MAX_LAYERS 32
 #define MAX_BLOCKS 171 * MAX_LAYERS
 
 int mouseX, mouseY, mouseXI, mouseYI;
@@ -372,7 +372,16 @@ int main () {
 
     window_width = 1900;
     window_height = 900;
-    window = SDL_CreateWindow("AdventureCraft", SDL_WINDOWPOS_CENTERED, 0, window_width, window_height, SDL_WINDOW_SHOWN);
+
+    SDL_DisplayMode dm;
+    SDL_GetDesktopDisplayMode(0, &dm);
+
+    window = SDL_CreateWindow(
+        "AdventureCraft",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        dm.w, dm.h,
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+    );
 
     if (!window) {
         show_mini_window("Fatal", "Failed to create a window. Game crashed with code 1");
@@ -386,6 +395,8 @@ int main () {
     }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_RenderSetLogicalSize(renderer, 1900, 900);
+
     if (!renderer) {
         SDL_DestroyWindow(window);
         show_mini_window("Fatal", "Failed to create a render. Game crashed with code 1");
@@ -558,13 +569,30 @@ int main () {
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            switch (event.type) {
+            switch (event.type){
+                case SDL_KEYDOWN:
+                    if (event.key.keysym.sym == SDLK_F11) {
+                        Uint32 flags = SDL_GetWindowFlags(window);
+                        if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
+                            SDL_SetWindowFullscreen(window, 0);
+                        } else {
+                            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                        }
+                    }
+                    break;
                 case SDL_QUIT:
                     running = 0;
                     break;
             }
         }
-        Uint32 buttons = SDL_GetMouseState(&mouseX, &mouseY);
+
+        int rawX, rawY;
+        Uint32 buttons = SDL_GetMouseState(&rawX, &rawY);
+        float logicalX, logicalY;
+        SDL_RenderWindowToLogical(renderer, rawX, rawY, &logicalX, &logicalY);
+        mouseXI = (int)logicalX;
+        mouseYI = (int)logicalY;
+
         const Uint8* key_status = SDL_GetKeyboardState(NULL);
         Uint32 now = SDL_GetTicks();
 
@@ -690,7 +718,7 @@ int main () {
                 }
             }
 
-            if (key_status[SDL_SCANCODE_DOWN]) {
+            if (key_status[SDL_SCANCODE_LCTRL]) {
                 int prevLayer = player.currentLayer - 1;
                 if (prevLayer >= 0) {
                     int collision_Prev = 0;
@@ -826,12 +854,16 @@ int main () {
             }
         }
 
-        SDL_SetRenderDrawColor(renderer, 100, 100, 100, 0);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
+
+        SDL_Rect gameArea = { 0, 0, 1900, 900 };
+        SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+        SDL_RenderFillRect(renderer, &gameArea);
 
         if (!showMenu) {
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            SDL_GetMouseState(&mouseXI, &mouseYI);
+
             mouseX = (mouseXI / 100) * 100;
             mouseY = (mouseYI / 100) * 100;
 
@@ -906,22 +938,7 @@ int main () {
             SDL_Surface* fontSurface2 = TTF_RenderText_Solid(font, buffer2, textcolor);
             SDL_Texture* fontTexture2 = SDL_CreateTextureFromSurface(renderer, fontSurface2);
 
-            char* currentBlockTypeString = "Wood";
-            if (currentBlockType == 0) {
-                currentBlockTypeString = "Wood";
-            } else if (currentBlockType == 1) {
-                currentBlockTypeString = "Bricks";
-            } else if (currentBlockType == 2) {
-                currentBlockTypeString = "Stone";
-            } else if (currentBlockType == 3) {
-                currentBlockTypeString = "Glass";
-            } else if (currentBlockType == 4) {
-                currentBlockTypeString = "Log";
-            } else if (currentBlockType == 5) {
-                currentBlockTypeString = "Grass";
-            }
-
-            sprintf(buffer3, "Type: %d (%s) | Layer: %d/%d", currentBlockType, currentBlockTypeString, player.currentLayer, MAX_LAYERS - 1);
+            sprintf(buffer3, "Layer: %d/%d", player.currentLayer, MAX_LAYERS - 1);
             int textWidth3, textHeight3;
             TTF_SizeText(font, buffer3, &textWidth3, &textHeight3);
             SDL_Surface* fontSurface3 = TTF_RenderText_Solid(font, buffer3, textcolor);
@@ -947,32 +964,30 @@ int main () {
         }
 
         if (showMenu) {
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+            SDL_Rect overlay = {0, 0, 1900, 900};
+            SDL_RenderFillRect(renderer, &overlay);
+
             render_inGameMenu(renderer, font2, buttonTexture, options, MAX_OPTIONS, &selectedOption);
 
-            if (buttons & SDL_BUTTON_LMASK && selectedOption >= 0) {
-                switch (selectedOption) {
-                    case 0:
-                        showMenu = 0;
-                        printf("INFO: Resuming game\n");
-                        fprintf(logFile, "INFO: Resuming game\n");
-                        break;
-                    case 1:
-                        saveWorld("world.acsave", blocks, blocks_count, &player, logFile);
-                        break;
-                    case 2:
-                        loadWorld("world.acsave", blocks, &blocks_count, &player, logFile);
-                        break;
-                    case 3:
-                        printf("INFO: Quitting game from menu\n");
-                        fprintf(logFile, "INFO: Quitting game from menu\n");
-                        running = SDL_FALSE;
-                        break;
-                }
-                SDL_Delay(200);
+            Uint32 now = SDL_GetTicks();
+            if (buttons & SDL_BUTTON_LMASK && selectedOption >= 0 && now > lastMouseClickTime) {
+                if (selectedOption == 0) showMenu = 0;
+                else if (selectedOption == 1) saveWorld("world.acsave", blocks, blocks_count, &player, logFile);
+                else if (selectedOption == 2) loadWorld("world.acsave", blocks, &blocks_count, &player, logFile);
+                else if (selectedOption == 3) running = 0;
+                lastMouseClickTime = now + 400;
             }
         }
 
-        render_status_bar(renderer, font, &statusMessage, window_width, window_height);
+        render_status_bar(renderer, font, &statusMessage, 1900, 900);
+
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        for (int i = 0; i < 5; i++) {
+            SDL_Rect border = { i, i, 1900 - (2 * i), 900 - (2 * i) };
+            SDL_RenderDrawRect(renderer, &border);
+        }
 
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
